@@ -11,6 +11,15 @@ ALLOWED_HOSTS = config(
     cast=lambda v: [s.strip() for s in v.split(',')],
 )
 
+CSRF_TRUSTED_ORIGINS = config(
+    'CSRF_TRUSTED_ORIGINS',
+    default='https://*.duckdns.org,http://*.duckdns.org',
+    cast=lambda v: [s.strip() for s in v.split(',') if s.strip()],
+)
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
