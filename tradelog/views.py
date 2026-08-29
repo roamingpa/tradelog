@@ -51,17 +51,36 @@ def dashboard(request):
     # Build unified agenda items list with rich sorting metadata
     agenda_items = []
     for p in day_purchases:
+        raw_wa = p.seller.whatsapp.strip() if (p.seller and p.seller.whatsapp) else ''
+        clean_wa = ''.join(c for c in raw_wa if c.isdigit()) if raw_wa else ''
+        cards_list = [
+            {
+                'name': item.card.name,
+                'code': item.card.code,
+                'version': item.card.get_version_display(),
+                'quantity': item.quantity,
+                'image_url': item.card.image_url,
+                'is_found': item.is_found,
+            }
+            for item in p.items.all()
+        ]
         agenda_items.append({
             'kind': 'purchase',
             'pk': p.pk,
             'party': p.seller.name if p.seller else 'Sin vendedor',
+            'whatsapp': raw_wa,
+            'clean_whatsapp': clean_wa,
             'location': p.location,
+            'location_name': p.location.name if p.location else '',
+            'latitude': p.location.latitude if (p.location and p.location.latitude) else None,
+            'longitude': p.location.longitude if (p.location and p.location.longitude) else None,
             'time_from': p.time_from,
             'time_to': p.time_to,
             'time_str': p.time_from.strftime('%H:%M') if p.time_from else '99:99',
             'is_completed': p.is_completed,
             'is_shipping': p.is_shipping,
             'items_count': sum(i.quantity for i in p.items.all()),
+            'cards_list': cards_list,
             'total': p.formatted_total(),
             'currency': p.currency,
             'detail_url': f"/purchases/{p.pk}/",
@@ -69,17 +88,36 @@ def dashboard(request):
         })
 
     for s in day_sales:
+        raw_wa = s.buyer.whatsapp.strip() if (s.buyer and s.buyer.whatsapp) else ''
+        clean_wa = ''.join(c for c in raw_wa if c.isdigit()) if raw_wa else ''
+        cards_list = [
+            {
+                'name': item.card.name,
+                'code': item.card.code,
+                'version': item.card.get_version_display(),
+                'quantity': item.quantity,
+                'image_url': item.card.image_url,
+                'is_found': item.is_found,
+            }
+            for item in s.items.all()
+        ]
         agenda_items.append({
             'kind': 'sale',
             'pk': s.pk,
             'party': s.buyer.name if s.buyer else 'Sin comprador',
+            'whatsapp': raw_wa,
+            'clean_whatsapp': clean_wa,
             'location': s.location,
+            'location_name': s.location.name if s.location else '',
+            'latitude': s.location.latitude if (s.location and s.location.latitude) else None,
+            'longitude': s.location.longitude if (s.location and s.location.longitude) else None,
             'time_from': s.time_from,
             'time_to': s.time_to,
             'time_str': s.time_from.strftime('%H:%M') if s.time_from else '99:99',
             'is_completed': s.is_completed,
             'is_shipping': s.is_shipping,
             'items_count': sum(i.quantity for i in s.items.all()),
+            'cards_list': cards_list,
             'total': s.formatted_total(),
             'currency': s.currency,
             'detail_url': f"/sales/{s.pk}/",
@@ -88,6 +126,16 @@ def dashboard(request):
 
     # Default sort: by time_from ascending (empty time goes to bottom)
     agenda_items.sort(key=lambda x: (x['time_str'], x['party'].lower()))
+
+    agenda_cards_data = {}
+    for item in agenda_items:
+        key = f"{item['kind']}-{item['pk']}"
+        agenda_cards_data[key] = {
+            'party': item['party'],
+            'kind_display': 'Compra' if item['kind'] == 'purchase' else 'Venta',
+            'detail_url': item['detail_url'],
+            'cards': item['cards_list'],
+        }
 
     map_points = []
     for item in agenda_items:
@@ -116,5 +164,6 @@ def dashboard(request):
         'day_purchases': day_purchases,
         'day_sales': day_sales,
         'map_points': json.dumps(map_points),
+        'agenda_cards_json': json.dumps(agenda_cards_data),
     }
     return render(request, 'dashboard.html', context)

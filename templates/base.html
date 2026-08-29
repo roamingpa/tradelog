@@ -216,9 +216,9 @@
     bootstrap.Modal.getInstance(document.getElementById('dynamicModal'))?.hide();
   });
 
-  // Initialize tom-select on elements with class ts-select
+  // Initialize tom-select on elements with class ts-select (skip custom handled selects)
   function initTomSelects(root) {
-    (root || document).querySelectorAll('.ts-select').forEach(function (el) {
+    (root || document).querySelectorAll('.ts-select:not(.ts-custom)').forEach(function (el) {
       if (!el.tomselect) {
         new TomSelect(el, { allowEmptyOption: true, placeholder: '— seleccionar —' });
       }

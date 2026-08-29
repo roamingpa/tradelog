@@ -83,14 +83,26 @@
     <div class="card h-100">
       <div class="card-header fw-semibold"><i class="bi bi-geo-alt-fill me-1 text-danger"></i>Lugar de encuentro</div>
       <div class="card-body">
-        <h6 class="fw-bold mb-1">{{ sale.location.name }}</h6>
+        <h6 class="fw-bold mb-2">{{ sale.location.name }}</h6>
         {% if sale.location.address %}
-          <p class="mb-2 text-muted small"><i class="bi bi-map me-1"></i>{{ sale.location.address }}</p>
-          <a href="https://www.google.com/maps/search/?api=1&query={{ sale.location.address|urlencode }}"
+          {% if sale.location.is_address_url %}
+            <p class="mb-2 small">
+              <a href="{{ sale.location.address }}" target="_blank" rel="noopener" class="text-success text-decoration-none">
+                <i class="bi bi-link-45deg me-1"></i>{{ sale.location.address|truncatechars:60 }}
+              </a>
+            </p>
+          {% else %}
+            <p class="mb-2 text-muted small"><i class="bi bi-map me-1"></i>{{ sale.location.address }}</p>
+          {% endif %}
+        {% endif %}
+
+        {% if sale.location.google_maps_direct_url %}
+          <a href="{{ sale.location.google_maps_direct_url }}"
              target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm mb-3">
-            <i class="bi bi-geo-alt"></i> Abrir en Google Maps
+            <i class="bi bi-geo-alt me-1"></i> Abrir en Google Maps
           </a>
         {% endif %}
+
         {% if sale.location.instructions %}
           <p class="small text-muted mb-2">{{ sale.location.instructions|linebreaksbr }}</p>
         {% endif %}

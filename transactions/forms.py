@@ -8,6 +8,7 @@ from .models import Purchase, PurchaseItem, Sale, SaleItem
 _C = {'class': 'form-control'}
 _CL = {'class': 'form-control form-control-lg'}
 _S = {'class': 'form-select ts-select'}
+_S_CUSTOM = {'class': 'form-select ts-select ts-custom'}
 
 
 class PurchaseForm(forms.ModelForm):
@@ -26,7 +27,7 @@ class PurchaseForm(forms.ModelForm):
             'date': forms.DateInput(format='%Y-%m-%d', attrs={**_CL, 'type': 'date'}),
             'fulfillment_date': forms.DateInput(format='%Y-%m-%d', attrs={**_C, 'type': 'date'}),
             'is_shipping': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'seller': forms.Select(attrs=_S),
+            'seller': forms.Select(attrs=_S_CUSTOM),
             'location': forms.Select(attrs=_S),
             'time_from': forms.TimeInput(attrs={**_C, 'type': 'time'}),
             'time_to': forms.TimeInput(attrs={**_C, 'type': 'time'}),
@@ -60,7 +61,7 @@ class SaleForm(forms.ModelForm):
             'date': forms.DateInput(format='%Y-%m-%d', attrs={**_CL, 'type': 'date'}),
             'fulfillment_date': forms.DateInput(format='%Y-%m-%d', attrs={**_C, 'type': 'date'}),
             'is_shipping': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'buyer': forms.Select(attrs=_S),
+            'buyer': forms.Select(attrs=_S_CUSTOM),
             'location': forms.Select(attrs=_S),
             'time_from': forms.TimeInput(attrs={**_C, 'type': 'time'}),
             'time_to': forms.TimeInput(attrs={**_C, 'type': 'time'}),
@@ -96,7 +97,7 @@ class PurchaseItemForm(forms.ModelForm):
         model = PurchaseItem
         fields = ['card', 'quantity', 'unit_price', 'is_found']
         widgets = {
-            'card': forms.Select(attrs={'class': 'form-select ts-select'}),
+            'card': forms.Select(attrs={'class': 'form-select ts-select ts-custom'}),
             'is_found': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
@@ -127,7 +128,7 @@ class SaleItemForm(forms.ModelForm):
         model = SaleItem
         fields = ['card', 'quantity', 'unit_price', 'is_found']
         widgets = {
-            'card': forms.Select(attrs={'class': 'form-select ts-select'}),
+            'card': forms.Select(attrs={'class': 'form-select ts-select ts-custom'}),
             'is_found': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 

@@ -121,8 +121,8 @@
                      style="height:55px;width:40px;border-radius:4px;object-fit:contain;display:none;background:#090314;"
                      onerror="this.style.display='none'">
                 <div class="flex-grow-1">{{ f.card }}</div>
-                <button type="button" class="btn btn-sm btn-outline-info flex-shrink-0 card-picker-btn"
-                        data-target="id_items-{{ forloop.counter0 }}-card"
+                <button type="button" class="btn btn-sm btn-outline-info flex-shrink-0"
+                        onclick="openCardPicker('id_items-{{ forloop.counter0 }}-card')"
                         title="Buscar en catálogo visual">
                   <i class="bi bi-search"></i>
                 </button>
@@ -185,8 +185,8 @@
              style="height:55px;width:40px;border-radius:4px;object-fit:contain;display:none;background:#090314;"
              onerror="this.style.display='none'">
         <div class="flex-grow-1">{{ formset.empty_form.card }}</div>
-        <button type="button" class="btn btn-sm btn-outline-info flex-shrink-0 card-picker-btn"
-                data-target="id_items-__prefix__-card"
+        <button type="button" class="btn btn-sm btn-outline-info flex-shrink-0"
+                onclick="openCardPicker('id_items-__prefix__-card')"
                 title="Buscar en catálogo visual">
           <i class="bi bi-search"></i>
         </button>
@@ -435,20 +435,19 @@
       if (del) { del.checked = true; row.style.display = 'none'; }
       else { row.remove(); }
       updateTotal();
-      return;
-    }
-
-    var pickerBtn = e.target.closest('.card-picker-btn');
-    if (pickerBtn) {
-      activeCardTargetSelectId = pickerBtn.dataset.target;
-      var modal = new bootstrap.Modal(document.getElementById('cardPickerModal'));
-      modal.show();
-      setTimeout(function() {
-        var inp = document.getElementById('card-picker-search');
-        if (inp) { inp.value = ''; inp.focus(); filterPickerGrid(''); }
-      }, 300);
     }
   });
+
+  window.openCardPicker = function(targetSelectId) {
+    activeCardTargetSelectId = targetSelectId;
+    var modalEl = document.getElementById('cardPickerModal');
+    var modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+    modal.show();
+    setTimeout(function() {
+      var inp = document.getElementById('card-picker-search');
+      if (inp) { inp.value = ''; inp.focus(); filterPickerGrid(''); }
+    }, 250);
+  };
 
   // Card Picker Grid Filter
   var pickerSearch = document.getElementById('card-picker-search');
@@ -477,7 +476,8 @@
       if (row) updateCardPreview(row);
       updateTotal();
     }
-    bootstrap.Modal.getInstance(document.getElementById('cardPickerModal'))?.hide();
+    var modalEl = document.getElementById('cardPickerModal');
+    bootstrap.Modal.getInstance(modalEl)?.hide();
   };
 
   // Listen for newly created cards via HTMX modal

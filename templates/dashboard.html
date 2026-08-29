@@ -44,9 +44,11 @@
           <label class="small text-muted mb-0 me-1"><i class="bi bi-arrow-down-up"></i></label>
           <select id="agenda-sort" class="form-select form-select-sm py-0 px-2" style="font-size:0.75rem; width:auto;">
             <option value="time">Por hora</option>
+            <option value="distance">📍 Por cercanía (GPS)</option>
+            <option value="location">Por lugar (A-Z)</option>
             <option value="status">Pendientes 1°</option>
             <option value="type">Compras 1°</option>
-            <option value="name">Por nombre</option>
+            <option value="name">Por contacto (A-Z)</option>
           </select>
         </div>
       </div>
@@ -59,30 +61,46 @@
                   data-kind="{{ item.kind }}"
                   data-time="{{ item.time_str }}"
                   data-completed="{% if item.is_completed %}1{% else %}0{% endif %}"
-                  data-name="{{ item.party|lower }}">
+                  data-name="{{ item.party|lower }}"
+                  data-location="{{ item.location_name|lower }}"
+                  data-lat="{{ item.latitude|default:'' }}"
+                  data-lon="{{ item.longitude|default:'' }}">
                 <input type="checkbox" class="form-check-input check-lg mt-1 toggle-check"
                        data-url="{{ item.toggle_url }}" data-row="{{ item.kind }}-row-{{ item.pk }}"
                        {% if item.is_completed %}checked{% endif %}>
                 <div class="flex-grow-1">
                   <div class="d-flex justify-content-between align-items-center">
-                    <a href="{{ item.detail_url }}" class="text-decoration-none item-title fw-semibold">
-                      {% if item.kind == 'purchase' %}
-                        <span class="badge bg-secondary me-1"><i class="bi bi-cart-down"></i> Compra</span>
-                      {% else %}
-                        <span class="badge bg-secondary me-1"><i class="bi bi-cart-up"></i> Venta</span>
+                    <div>
+                      <a href="{{ item.detail_url }}" class="text-decoration-none item-title fw-semibold">
+                        {% if item.kind == 'purchase' %}
+                          <span class="badge bg-secondary me-1"><i class="bi bi-cart-down"></i> Compra</span>
+                        {% else %}
+                          <span class="badge bg-secondary me-1"><i class="bi bi-cart-up"></i> Venta</span>
+                        {% endif %}
+                        {% if item.is_shipping %}<span class="badge bg-primary me-1"><i class="bi bi-truck"></i> Envío</span>{% endif %}
+                        {{ item.party }}
+                      </a>
+                      {% if item.clean_whatsapp %}
+                        <a href="https://wa.me/{{ item.clean_whatsapp }}" target="_blank" rel="noopener"
+                           class="btn btn-sm btn-outline-success py-0 px-1 ms-1" style="font-size:0.75rem;" title="Abrir WhatsApp con {{ item.party }}">
+                          <i class="bi bi-whatsapp"></i>
+                        </a>
                       {% endif %}
-                      {% if item.is_shipping %}<span class="badge bg-primary me-1"><i class="bi bi-truck"></i> Envío</span>{% endif %}
-                      {{ item.party }}
-                    </a>
+                    </div>
                     <small class="text-muted fw-semibold">
                       {% if item.time_from %}{{ item.time_from|time:"H:i" }}{% if item.time_to %}–{{ item.time_to|time:"H:i" }}{% endif %}{% else %}<span class="text-muted opacity-50">—</span>{% endif %}
                     </small>
                   </div>
-                  <div class="d-flex justify-content-between align-items-center mt-1">
-                    <small class="text-muted text-truncate" style="max-width: 220px;">
-                      <i class="bi bi-geo-alt"></i> {{ item.location|default:"Sin lugar" }}
+                  <div class="d-flex justify-content-between align-items-center mt-2">
+                    <small class="text-muted text-truncate" style="max-width: 200px;" title="{{ item.location_name }}">
+                      <i class="bi bi-geo-alt"></i> {{ item.location_name|default:"Sin lugar" }}
+                      <span class="dist-tag badge bg-secondary ms-1" style="display:none; font-size:0.65rem;"></span>
                     </small>
-                    <small class="fw-semibold text-success">{{ item.total }} {{ item.currency }}</small>
+                    <button type="button" class="btn btn-sm btn-outline-info py-0 px-2" style="font-size:0.75rem;"
+                            onclick="openAgendaCardsModal('{{ item.kind }}-{{ item.pk }}')"
+                            title="Ver lista de cartas">
+                      <i class="bi bi-layers me-1"></i>{{ item.items_count }} carta{% if item.items_count != 1 %}s{% endif %}
+                    </button>
                   </div>
                 </div>
               </li>
@@ -185,10 +203,45 @@
 
 </div>
 
+<!-- Modal para ver cartas de una transacción de la agenda -->
+<div class="modal fade" id="agendaCardsModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="agendaCardsModalTitle">
+          <i class="bi bi-layers me-1 text-success"></i> Cartas
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Carta</th>
+                <th>Versión</th>
+                <th class="text-center">Cant.</th>
+                <th class="text-center">Estado</th>
+              </tr>
+            </thead>
+            <tbody id="agendaCardsModalTableBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer d-flex justify-content-between">
+        <span class="small text-muted" id="agendaCardsModalCount"></span>
+        <a href="#" id="agendaCardsModalDetailLink" class="btn btn-sm btn-primary">Ver detalle completo</a>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (function () {
   var SELECTED_DATE = "{{ selected_date|date:'Y-m-d' }}";
+  var AGENDA_CARDS = {{ agenda_cards_json|safe }};
 
   window.shiftDate = function (deltaDays) {
     var picker = document.getElementById('date-picker');
@@ -198,6 +251,56 @@
     picker.form.submit();
   };
 
+  // Open modal showing cards for a specific transaction
+  window.openAgendaCardsModal = function(key) {
+    var data = AGENDA_CARDS[key];
+    if (!data) return;
+    document.getElementById('agendaCardsModalTitle').innerHTML =
+      '<i class="bi bi-layers me-1 text-success"></i> ' + data.kind_display + ' — ' + data.party;
+    document.getElementById('agendaCardsModalDetailLink').href = data.detail_url;
+
+    var tbody = document.getElementById('agendaCardsModalTableBody');
+    tbody.innerHTML = '';
+
+    var totalQty = 0;
+    data.cards.forEach(function(card) {
+      totalQty += card.quantity;
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' +
+          '<div class="d-flex align-items-center gap-2 py-1">' +
+            '<img src="' + card.image_url + '" referrerpolicy="no-referrer" style="width:36px;height:50px;object-fit:cover;border-radius:3px;background:#090314;" onerror="this.style.display=\'none\'">' +
+            '<div><div class="fw-semibold small">' + card.name + '</div><small class="text-muted">' + card.code + '</small></div>' +
+          '</div>' +
+        '</td>' +
+        '<td><span class="badge bg-secondary">' + card.version + '</span></td>' +
+        '<td class="text-center fw-bold">×' + card.quantity + '</td>' +
+        '<td class="text-center">' +
+          (card.is_found
+            ? '<span class="badge bg-success text-dark"><i class="bi bi-check-circle-fill me-1"></i>Revisada</span>'
+            : '<span class="badge bg-secondary"><i class="bi bi-circle me-1"></i>Pendiente</span>') +
+        '</td>';
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('agendaCardsModalCount').textContent = 'Total: ' + totalQty + ' carta(s)';
+    new bootstrap.Modal(document.getElementById('agendaCardsModal')).show();
+  };
+
+  // Distance calculation helper (Haversine formula in KM)
+  function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+    var R = 6371; // Earth radius in km
+    var dLat = deg2rad(lat2 - lat1);
+    var dLon = deg2rad(lon2 - lon1);
+    var a =
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
+  function deg2rad(deg) { return deg * (Math.PI / 180); }
+
   // Agenda sorting
   var sortSelect = document.getElementById('agenda-sort');
   var agendaList = document.getElementById('agenda-list');
@@ -205,9 +308,61 @@
     sortSelect.addEventListener('change', function() {
       var mode = sortSelect.value;
       var items = Array.from(agendaList.querySelectorAll('.checklist-item'));
+
+      if (mode === 'distance') {
+        if (!navigator.geolocation) {
+          alert('Tu navegador no soporta geolocalización.');
+          return;
+        }
+        sortSelect.disabled = true;
+        navigator.geolocation.getCurrentPosition(
+          function(pos) {
+            sortSelect.disabled = false;
+            var uLat = pos.coords.latitude;
+            var uLon = pos.coords.longitude;
+
+            items.forEach(function(el) {
+              var lat = parseFloat(el.dataset.lat);
+              var lon = parseFloat(el.dataset.lon);
+              var badge = el.querySelector('.dist-tag');
+              if (!isNaN(lat) && !isNaN(lon)) {
+                var d = getDistanceFromLatLonInKm(uLat, uLon, lat, lon);
+                el.dataset.distance = d;
+                if (badge) {
+                  badge.textContent = (d < 1 ? Math.round(d * 1000) + ' m' : d.toFixed(1) + ' km');
+                  badge.style.display = 'inline-block';
+                }
+              } else {
+                el.dataset.distance = 999999;
+                if (badge) badge.style.display = 'none';
+              }
+            });
+
+            items.sort(function(a, b) {
+              return parseFloat(a.dataset.distance || 999999) - parseFloat(b.dataset.distance || 999999);
+            });
+            items.forEach(function(el) { agendaList.appendChild(el); });
+          },
+          function(err) {
+            sortSelect.disabled = false;
+            alert('No se pudo obtener tu ubicación actual. Asegúrate de dar permisos de GPS.');
+          },
+          { enableHighAccuracy: true, timeout: 8000 }
+        );
+        return;
+      }
+
+      // Hide distance badges if switching away from distance sort
+      items.forEach(function(el) {
+        var badge = el.querySelector('.dist-tag');
+        if (badge) badge.style.display = 'none';
+      });
+
       items.sort(function(a, b) {
         if (mode === 'status') {
           return (a.dataset.completed || '0').localeCompare(b.dataset.completed || '0');
+        } else if (mode === 'location') {
+          return (a.dataset.location || 'zzz').localeCompare(b.dataset.location || 'zzz');
         } else if (mode === 'type') {
           return (a.dataset.kind || '').localeCompare(b.dataset.kind || '');
         } else if (mode === 'name') {
@@ -265,7 +420,6 @@
     var total = pointsAtLoc.length;
     var allCompleted = pointsAtLoc.every(function(p) { return p.completed; });
     var color = allCompleted ? '#22c55e' : '#9333ea';
-    var border = allCompleted ? '#14532d' : '#581c87';
     var badgeText = total > 1
       ? '<span style="position:absolute;top:-7px;right:-9px;background:#f59e0b;color:#000;font-size:10px;font-weight:900;border-radius:10px;padding:0 5px;border:1px solid #000;line-height:14px;box-shadow:0 1px 4px rgba(0,0,0,0.5);">' + total + '</span>'
       : '';
