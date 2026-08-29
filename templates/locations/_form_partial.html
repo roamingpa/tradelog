@@ -1,0 +1,116 @@
+<form hx-post="{% url 'location-new' %}?select={{ select_id }}"
+      hx-target="#dynamicModalBody"
+      hx-swap="innerHTML">
+  {% csrf_token %}
+  <input type="hidden" name="select_id" value="{{ select_id }}">
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger py-2 small">{{ form.non_field_errors|join:", " }}</div>
+  {% endif %}
+
+  <div class="mb-3">
+    <label class="form-label">Nombre *</label>
+    {{ form.name }}
+    {% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors|join:", " }}</div>{% endif %}
+  </div>
+
+  <!-- Nominatim map search -->
+  <div class="mb-2">
+    <label class="form-label">Buscar en el mapa</label>
+    <div class="position-relative">
+      <input type="text" id="map-search" class="form-control" placeholder="Ej: Providencia, Santiago…" autocomplete="off">
+      <div id="map-results" class="list-group position-absolute w-100 mt-1" style="display:none;z-index:1050;max-height:180px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <div id="map-preview" class="mb-3 ratio ratio-4x3 rounded overflow-hidden" style="display:none">
+    <iframe id="map-iframe" src="" loading="lazy" style="border:0"></iframe>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Direcci&oacute;n (texto)</label>
+    {{ form.address }}
+    {% if form.address.errors %}<div class="text-danger small mt-1">{{ form.address.errors|join:", " }}</div>{% endif %}
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Instrucciones</label>
+    {{ form.instructions }}
+    {% if form.instructions.help_text %}<div class="form-text">{{ form.instructions.help_text }}</div>{% endif %}
+  </div>
+
+  {{ form.maps_link }}
+  {% if form.maps_link.errors %}<div class="text-danger small mt-1">{{ form.maps_link.errors|join:", " }}</div>{% endif %}
+
+  <div class="d-grid">
+    <button type="submit" class="btn btn-primary">Crear lugar</button>
+  </div>
+</form>
+
+<script>
+(function () {
+  var search = document.getElementById('map-search');
+  var results = document.getElementById('map-results');
+  var preview = document.getElementById('map-preview');
+  var iframe = document.getElementById('map-iframe');
+  var mapsLink = document.querySelector('[name="maps_link"]');
+  var addressInput = document.querySelector('[name="address"]');
+  var nameInput = document.querySelector('[name="name"]');
+  var timer, autoTimer;
+
+  search.addEventListener('input', function () {
+    clearTimeout(timer);
+    var q = this.value.trim();
+    if (q.length < 3) { results.style.display = 'none'; return; }
+    timer = setTimeout(function () {
+      fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(q) + '&format=json&limit=5&countrycodes=cl&accept-language=es')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          results.innerHTML = '';
+          if (!data.length) {
+            results.innerHTML = '<div class="list-group-item small text-muted py-2"><i class="bi bi-info-circle me-1"></i> Sin resultados en el mapa libre por ese nombre. Prueba buscando por calle, metro o comuna (ej: <em>Paseo Las Palmas</em> o <em>Av. Providencia 2198</em>).</div>';
+          } else {
+            data.forEach(function (r) {
+              var btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'list-group-item list-group-item-action small';
+              btn.textContent = r.display_name;
+              btn.addEventListener('click', function () { selectResult(r); });
+              results.appendChild(btn);
+            });
+          }
+          results.style.display = 'block';
+        });
+    }, 500);
+  });
+
+  function showMapPreview(query) {
+    if (!query || query.trim().length < 3) return;
+    var embed = 'https://maps.google.com/maps?q=' + encodeURIComponent(query.trim()) + '&t=&z=15&ie=UTF8&iwloc=&output=embed';
+    if (mapsLink) mapsLink.value = embed;
+    iframe.src = embed;
+    preview.style.display = 'block';
+  }
+
+  function selectResult(r) {
+    var query = r.display_name;
+    showMapPreview(query);
+    var parts = query.split(',');
+    search.value = parts.slice(0, 2).join(',').trim();
+    if (addressInput && !addressInput.value) addressInput.value = query.slice(0, 490);
+    if (nameInput && !nameInput.value) nameInput.value = parts[0].trim();
+    results.style.display = 'none';
+  }
+
+  if (addressInput) {
+    addressInput.addEventListener('input', function () {
+      clearTimeout(autoTimer);
+      autoTimer = setTimeout(function () { showMapPreview(addressInput.value); }, 700);
+    });
+  }
+
+  document.addEventListener('click', function (e) {
+    if (!search.contains(e.target) && !results.contains(e.target)) results.style.display = 'none';
+  });
+}());
+</script>

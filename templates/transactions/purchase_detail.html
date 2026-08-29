@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Compra #{{ purchase.pk }} — Tradelog{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0">Compra <span class="text-muted fw-normal">#{{ purchase.pk }}</span></h1>
+  <div class="d-flex gap-2">
+    <a href="{% url 'purchase-edit' purchase.pk %}" class="btn btn-sm btn-outline-primary">
+      <i class="bi bi-pencil-square me-1"></i>Editar
+    </a>
+    <a href="{% url 'purchase-list' %}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Volver
+    </a>
+  </div>
+</div>
+
+<div class="row g-3">
+
+  <!-- Info general -->
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header fw-semibold">Información general</div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-5 text-muted small">Fecha del acuerdo</dt>
+          <dd class="col-7">{{ purchase.date|date:"d/m/Y" }}</dd>
+
+          <dt class="col-5 text-muted small">{% if purchase.is_shipping %}Fecha de envío{% else %}Fecha de retiro{% endif %}</dt>
+          <dd class="col-7">
+            {{ purchase.fulfillment_date|date:"d/m/Y"|default:"—" }}
+            {% if purchase.is_shipping %}<span class="badge bg-primary ms-1"><i class="bi bi-truck"></i> Envío</span>{% endif %}
+          </dd>
+
+          <dt class="col-5 text-muted small">Moneda</dt>
+          <dd class="col-7">{{ purchase.currency }}</dd>
+
+          {% if purchase.seller %}
+          <dt class="col-5 text-muted small">Vendedor</dt>
+          <dd class="col-7">
+            <span class="fw-semibold">{{ purchase.seller.name }}</span>
+            {% if purchase.seller.whatsapp %}
+              <br><a href="https://wa.me/{{ purchase.seller.whatsapp|cut:'+' }}" target="_blank" rel="noopener" class="text-success text-decoration-none small">
+                <i class="bi bi-whatsapp"></i> {{ purchase.seller.whatsapp }}
+              </a>
+            {% endif %}
+            {% if purchase.seller.instagram %}
+              <br><a href="https://instagram.com/{{ purchase.seller.instagram|cut:'@' }}" target="_blank" rel="noopener" class="text-decoration-none small">
+                <i class="bi bi-instagram"></i> {{ purchase.seller.instagram }}
+              </a>
+            {% endif %}
+            {% if purchase.seller.email %}
+              <br><a href="mailto:{{ purchase.seller.email }}" class="text-decoration-none small">
+                <i class="bi bi-envelope"></i> {{ purchase.seller.email }}
+              </a>
+            {% endif %}
+          </dd>
+          {% endif %}
+
+          {% if purchase.time_from %}
+          <dt class="col-5 text-muted small">Horario</dt>
+          <dd class="col-7">
+            {{ purchase.time_from|time:"H:i" }}{% if purchase.time_to %} – {{ purchase.time_to|time:"H:i" }}{% endif %}
+          </dd>
+          {% endif %}
+
+          {% if purchase.instructions %}
+          <dt class="col-5 text-muted small">Instrucciones</dt>
+          <dd class="col-7">{{ purchase.instructions|linebreaksbr }}</dd>
+          {% endif %}
+
+          {% if purchase.notes %}
+          <dt class="col-5 text-muted small">Notas</dt>
+          <dd class="col-7 text-muted fst-italic">{{ purchase.notes|linebreaksbr }}</dd>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lugar -->
+  {% if purchase.location %}
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header fw-semibold"><i class="bi bi-geo-alt-fill me-1 text-danger"></i>Lugar de encuentro</div>
+      <div class="card-body">
+        <h6 class="fw-bold mb-1">{{ purchase.location.name }}</h6>
+        {% if purchase.location.address %}
+          <p class="mb-2 text-muted small"><i class="bi bi-map me-1"></i>{{ purchase.location.address }}</p>
+          <a href="https://www.google.com/maps/search/?api=1&query={{ purchase.location.address|urlencode }}"
+             target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm mb-3">
+            <i class="bi bi-geo-alt"></i> Abrir en Google Maps
+          </a>
+        {% endif %}
+        {% if purchase.location.instructions %}
+          <p class="small text-muted mb-2">{{ purchase.location.instructions|linebreaksbr }}</p>
+        {% endif %}
+        <div class="ratio ratio-16x9 rounded overflow-hidden mt-2">
+          {% if purchase.location.maps_link %}
+            <iframe src="{{ purchase.location.maps_link }}" allowfullscreen loading="lazy" style="border:0"></iframe>
+          {% else %}
+            <iframe src="https://maps.google.com/maps?q={{ purchase.location.address|default:purchase.location.name|urlencode }}&t=&z=15&ie=UTF8&iwloc=&output=embed" allowfullscreen loading="lazy" style="border:0"></iframe>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Cartas -->
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header fw-semibold">Cartas</div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Carta</th>
+              <th class="d-none d-sm-table-cell">Versión</th>
+              <th class="text-center">Cant.</th>
+              <th class="text-end">Precio u.</th>
+              <th class="text-end">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in purchase.items.all %}
+            <tr>
+              <td>
+                <div class="d-flex align-items-center gap-3 py-1">
+                  <div class="position-relative flex-shrink-0" style="width:50px;height:70px;">
+                    <img src="{{ item.card.image_url }}" referrerpolicy="no-referrer" alt="{{ item.card.name }}"
+                         class="rounded shadow-sm"
+                         style="width:50px;height:70px;object-fit:cover;cursor:pointer;background:#1a0e33;border:1px solid var(--eva-purple);"
+                         onclick="openCardModal('{{ item.card.image_url|escapejs }}', '{{ item.card.name|escapejs }}', '{{ item.card.code|escapejs }}')"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="card-fallback flex-column justify-content-center align-items-center rounded text-center small fw-bold"
+                         style="display:none;width:50px;height:70px;background:#2b1754;color:#c084fc;border:1px solid #6d28d9;font-size:0.65rem;line-height:1.1;padding:2px;">
+                      <i class="bi bi-card-image mb-1 d-block fs-6"></i>
+                      {{ item.card.code }}
+                    </div>
+                  </div>
+                  <div>
+                    <div class="fw-semibold lh-sm fs-6">{{ item.card.name }}</div>
+                    <small class="text-muted">{{ item.card.code }}</small>
+                  </div>
+                </div>
+              </td>
+              <td class="d-none d-sm-table-cell">
+                <span class="badge bg-secondary">{{ item.card.get_version_display }}</span>
+              </td>
+              <td class="text-center">{{ item.quantity }}</td>
+              <td class="text-end">{{ item.formatted_unit_price }}</td>
+              <td class="text-end fw-semibold">{{ item.formatted_subtotal }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot class="table-light">
+            <tr>
+              <td colspan="4" class="text-end fw-bold">Total</td>
+              <td class="text-end fw-bold text-success">{{ purchase.formatted_total }} {{ purchase.currency }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

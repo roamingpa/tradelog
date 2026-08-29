@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Tradelog — Organiza tus compras y ventas de TCG{% endblock %}
+{% block content %}
+<style>
+  .hero { padding: 4rem 1rem 3rem; text-align: center; }
+  .hero h1 { font-size: 2.4rem; font-weight: 900; letter-spacing: 1px; }
+  .hero .lead { color: var(--eva-text-muted); font-size: 1.15rem; max-width: 640px; margin: 0 auto 2rem; }
+  .feature-card { background: var(--eva-surface); border: 1px solid var(--eva-border); border-radius: .6rem; padding: 1.75rem; height: 100%; transition: transform .2s, box-shadow .2s; }
+  .feature-card:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(147,51,234,.25); }
+  .feature-icon { font-size: 2rem; color: var(--eva-green); margin-bottom: .75rem; text-shadow: 0 0 12px var(--eva-green-glow); }
+  .mock-shot { background: var(--eva-surface-2); border: 1px solid var(--eva-border); border-radius: .6rem; padding: 1rem; }
+  .cta-section { background: linear-gradient(135deg, #140a26 0%, #1e1138 100%); border: 1px solid var(--eva-border); border-radius: .75rem; padding: 3rem 2rem; text-align: center; margin-top: 3rem; }
+</style>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="mb-3" style="font-size:3rem;"><i class="bi bi-bar-chart-line-fill" style="color:var(--eva-green); text-shadow:0 0 20px var(--eva-green-glow);"></i></div>
+  <h1>Tradelog</h1>
+  <p class="lead">
+    Lleva el control de tus compras y ventas de cartas <strong>One Piece TCG</strong>:
+    a quién le compraste, a quién le vendiste, dónde debes retirar o entregar,
+    y qué cartas se movieron en cada trato — todo en un solo lugar.
+  </p>
+  <div class="d-flex justify-content-center gap-2">
+    <a href="{% url 'signup' %}" class="btn btn-success btn-lg"><i class="bi bi-person-plus-fill me-1"></i>Crear cuenta gratis</a>
+    <a href="{% url 'login' %}" class="btn btn-outline-primary btn-lg"><i class="bi bi-box-arrow-in-right me-1"></i>Iniciar sesión</a>
+  </div>
+</div>
+
+<!-- Features -->
+<div class="row g-4 mt-2">
+  <div class="col-md-4">
+    <div class="feature-card">
+      <div class="feature-icon"><i class="bi bi-cart2"></i></div>
+      <h5 class="fw-bold">Compras y ventas</h5>
+      <p class="text-muted mb-0">Registra cada transacción con múltiples cartas, cantidades y precios. Soporta CLP, USD y ARS.</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="feature-card">
+      <div class="feature-icon"><i class="bi bi-geo-alt-fill"></i></div>
+      <h5 class="fw-bold">Ubicación y horarios</h5>
+      <p class="text-muted mb-0">Guarda el lugar de encuentro, la dirección y el horario. Incluye mapa integrado para saber exactamente dónde ir.</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="feature-card">
+      <div class="feature-icon"><i class="bi bi-person-lines-fill"></i></div>
+      <h5 class="fw-bold">Contactos</h5>
+      <p class="text-muted mb-0">WhatsApp, Instagram y correo de cada comprador o vendedor, siempre a un clic de distancia.</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="feature-card">
+      <div class="feature-icon"><i class="bi bi-check2-square"></i></div>
+      <h5 class="fw-bold">Agenda del día</h5>
+      <p class="text-muted mb-0">Un dashboard diario con checklist de retiros/entregas pendientes y un mapa con el recorrido completo.</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="feature-card">
+      <div class="feature-icon"><i class="bi bi-truck"></i></div>
+      <h5 class="fw-bold">Retiro o envío</h5>
+      <p class="text-muted mb-0">Marca si el trato es presencial o por envío, con fechas separadas para el acuerdo y la entrega.</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="feature-card">
+      <div class="feature-icon"><i class="bi bi-images"></i></div>
+      <h5 class="fw-bold">Catálogo con imágenes</h5>
+      <p class="text-muted mb-0">Cartas con código, versión (foil, alt art, SP, pre-release) e imagen oficial de cada una.</p>
+    </div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="cta-section">
+  <h3 class="fw-bold mb-2">Tu información, solo tuya</h3>
+  <p class="text-muted mb-4">Cada cuenta ve únicamente sus propias compras, ventas, contactos y lugares.</p>
+  <a href="{% url 'signup' %}" class="btn btn-success btn-lg"><i class="bi bi-rocket-takeoff-fill me-1"></i>Empezar ahora</a>
+</div>
+{% endblock %}

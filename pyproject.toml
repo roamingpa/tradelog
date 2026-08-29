@@ -1,0 +1,11 @@
+[project]
+name = "tradelog"
+version = "0.1.0"
+description = "Purchase and sale tracker for One Piece TCG cards"
+requires-python = ">=3.10"
+dependencies = [
+    "django>=5.2.17",
+    "gunicorn>=26.2.0",
+    "python-decouple>=3.8",
+    "whitenoise>=6.12.0",
+]

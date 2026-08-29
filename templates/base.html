@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="es" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Tradelog{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+  <style>
+  :root, [data-bs-theme="dark"] {
+    --eva-bg: #090314;
+    --eva-surface: #140a26;
+    --eva-surface-2: #1e1138;
+    --eva-border: #581c87;
+    --eva-purple: #9333ea;
+    --eva-purple-light: #c084fc;
+    --eva-purple-glow: rgba(147, 51, 234, 0.35);
+    --eva-green: #22c55e;
+    --eva-green-dim: #16a34a;
+    --eva-green-glow: rgba(34, 197, 94, 0.25);
+    --eva-orange: #f97316;
+    --eva-text: #f5f3ff;
+    --eva-text-muted: #c4b5fd;
+    --eva-danger: #f87171;
+    --bs-body-bg: var(--eva-bg);
+    --bs-body-color: var(--eva-text);
+    --bs-primary: var(--eva-purple);
+    --bs-primary-rgb: 147, 51, 234;
+    --bs-success: var(--eva-green);
+    --bs-success-rgb: 34, 197, 94;
+    --bs-link-color: var(--eva-green);
+    --bs-link-hover-color: #4ade80;
+    --bs-border-color: var(--eva-border);
+    --bs-card-bg: var(--eva-surface);
+    --bs-card-border-color: var(--eva-border);
+    --bs-card-cap-bg: var(--eva-surface-2);
+    --bs-modal-bg: var(--eva-surface);
+    --bs-modal-header-border-color: var(--eva-border);
+    --bs-table-color: var(--eva-text);
+    --bs-table-border-color: var(--eva-border);
+  }
+  body { background: var(--eva-bg); color: var(--eva-text); }
+  .navbar { background: linear-gradient(135deg, #090214 0%, #170a30 100%) !important; border-bottom: 2px solid var(--eva-purple); box-shadow: 0 2px 20px var(--eva-purple-glow); }
+  .navbar-brand { color: var(--eva-green) !important; font-weight: 900; letter-spacing: 2px; font-size: 1.15rem; text-shadow: 0 0 10px var(--eva-green-glow); }
+  .nav-link { color: #d8b4fe !important; font-weight: 500; transition: color .2s; }
+  .nav-link:hover, .nav-link:focus { color: var(--eva-green) !important; }
+  .card { background: var(--eva-surface) !important; border: 1px solid var(--eva-border) !important; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+  .card-header { background: var(--eva-surface-2) !important; border-bottom: 1px solid var(--eva-border) !important; color: #ffffff !important; font-weight: 600; }
+  .card-footer { background: var(--eva-surface-2) !important; border-top: 1px solid var(--eva-border) !important; }
+  .form-control, .form-select { background-color: #1a0e33 !important; border: 1px solid #6d28d9 !important; color: #ffffff !important; }
+  .form-control:focus, .form-select:focus { background-color: #241147 !important; border-color: var(--eva-green) !important; box-shadow: 0 0 0 3px var(--eva-green-glow) !important; color: #ffffff !important; }
+  .form-control::placeholder { color: #a78bfa !important; }
+  .form-label { color: #d8b4fe !important; font-weight: 700; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .3rem; }
+  .btn-primary { background-color: var(--eva-purple) !important; border-color: #a855f7 !important; color: #ffffff !important; font-weight: 600; box-shadow: 0 0 12px var(--eva-purple-glow); }
+  .btn-primary:hover, .btn-primary:active { background-color: #7e22ce !important; border-color: #9333ea !important; box-shadow: 0 0 18px var(--eva-purple-glow); }
+  .btn-success { background-color: var(--eva-green) !important; border-color: var(--eva-green) !important; color: #041505 !important; font-weight: 700; box-shadow: 0 0 12px var(--eva-green-glow); }
+  .btn-success:hover, .btn-success:active { background-color: #16a34a !important; border-color: #16a34a !important; color: #041505 !important; box-shadow: 0 0 18px var(--eva-green-glow); }
+  .btn-outline-secondary { border-color: #6d28d9 !important; color: #d8b4fe !important; }
+  .btn-outline-secondary:hover { background: #2e175b !important; color: #ffffff !important; }
+  .btn-outline-primary { border-color: #a855f7 !important; color: #e9d5ff !important; }
+  .btn-outline-primary:hover { background: var(--eva-purple) !important; color: #ffffff !important; }
+  .btn-outline-success { border-color: var(--eva-green) !important; color: var(--eva-green) !important; font-weight: 600; }
+  .btn-outline-success:hover { background: var(--eva-green) !important; color: #041505 !important; }
+  .btn-outline-danger { border-color: #7f1d1d !important; color: var(--eva-danger) !important; }
+  .btn-outline-danger:hover { background: #7f1d1d !important; color: #ffffff !important; }
+  .table { color: var(--eva-text) !important; --bs-table-border-color: var(--eva-border) !important; }
+  .table-light, .table tfoot.table-light, .table thead { --bs-table-bg: var(--eva-surface-2) !important; --bs-table-color: #f5f3ff !important; background-color: var(--eva-surface-2) !important; color: #f5f3ff !important; font-weight: 600; }
+  .table-hover>tbody>tr:hover>td, .table-hover>tbody>tr:hover>th { background-color: rgba(147, 51, 234, 0.15) !important; }
+  .table>:not(caption)>*>*{ border-bottom-color: var(--eva-border) !important; }
+  .badge.bg-secondary { background: #2b1754 !important; color: #e9d5ff !important; border: 1px solid #6d28d9; font-weight: 500; }
+  .alert-info { background: rgba(147, 51, 234, 0.15) !important; border-color: #6d28d9 !important; color: #e9d5ff !important; }
+  .alert-danger { background: rgba(248, 113, 113, 0.15) !important; border-color: #991b1b !important; color: #fca5a5 !important; }
+  .alert-success { background: rgba(34, 197, 94, 0.15) !important; border-color: #166534 !important; color: #86efac !important; }
+  .modal-content { background: var(--eva-surface) !important; border: 1px solid var(--eva-border) !important; }
+  .modal-header { border-bottom: 1px solid var(--eva-border) !important; background: var(--eva-surface-2) !important; }
+  .modal-title { color: #ffffff !important; font-weight: 700; }
+  .btn-close { filter: invert(1) brightness(0.9); }
+  .page-link { background: var(--eva-surface) !important; border-color: var(--eva-border) !important; color: #d8b4fe !important; }
+  .page-item.disabled .page-link { color: #8b5cf6 !important; background: var(--eva-surface-2) !important; }
+  .list-group-item { background: var(--eva-surface-2) !important; border-color: var(--eva-border) !important; color: #f5f3ff !important; }
+  .list-group-item-action:hover, .list-group-item-action:focus { background: #2e175b !important; color: var(--eva-green) !important; }
+  .ts-wrapper { padding: 0 !important; }
+  .ts-control { background: #1a0e33 !important; border: 1px solid #6d28d9 !important; border-radius: .375rem !important; color: #ffffff !important; min-height: 2.5rem; display: flex; align-items: center; }
+  .ts-control:focus-within { border-color: var(--eva-green) !important; box-shadow: 0 0 0 3px var(--eva-green-glow) !important; }
+  .ts-control input { color: #ffffff !important; background: transparent !important; }
+  .ts-control input::placeholder { color: #a78bfa !important; }
+  .ts-dropdown { background: #140a26 !important; border: 1px solid #6d28d9 !important; box-shadow: 0 10px 30px rgba(0,0,0,0.8) !important; }
+  .ts-dropdown [data-selectable] { color: #f5f3ff !important; }
+  .ts-dropdown [data-selectable]:hover, .ts-dropdown .option.active { background: #2b1754 !important; color: var(--eva-green) !important; font-weight: 600; }
+  .ts-control .item { color: var(--eva-green) !important; font-weight: 600; }
+  .text-muted { color: #c4b5fd !important; }
+  .border-bottom { border-bottom-color: var(--eva-border) !important; }
+  a:not(.btn):not(.nav-link):not(.navbar-brand) { color: var(--eva-green) !important; font-weight: 500; }
+  a:not(.btn):not(.nav-link):not(.navbar-brand):hover { color: #4ade80 !important; text-decoration: underline !important; }
+  .text-success { color: var(--eva-green) !important; }
+  .text-danger { color: var(--eva-danger) !important; }
+  .spinner-border { color: var(--eva-green) !important; }
+  .ratio iframe { background: var(--eva-surface); }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="{% if user.is_authenticated %}{% url 'dashboard' %}{% else %}{% url 'landing' %}{% endif %}">
+        <i class="bi bi-bar-chart-line-fill me-1"></i> Tradelog
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="nav">
+        <ul class="navbar-nav ms-auto align-items-lg-center">
+          {% if user.is_authenticated %}
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'dashboard' %}"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'purchase-list' %}"><i class="bi bi-cart-down me-1"></i>Compras</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'sale-list' %}"><i class="bi bi-cart-up me-1"></i>Ventas</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'admin:index' %}"><i class="bi bi-gear me-1"></i>Admin</a>
+            </li>
+            <li class="nav-item ms-lg-2">
+              <span class="nav-link text-muted"><i class="bi bi-person-circle me-1"></i>{{ user.username }}</span>
+            </li>
+            <li class="nav-item">
+              <form method="post" action="{% url 'logout' %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Cerrar sesión</button>
+              </form>
+            </li>
+          {% else %}
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'login' %}"><i class="bi bi-box-arrow-in-right me-1"></i>Iniciar sesión</a>
+            </li>
+            <li class="nav-item">
+              <a class="btn btn-sm btn-success ms-lg-2" href="{% url 'signup' %}"><i class="bi bi-person-plus-fill me-1"></i>Crear cuenta</a>
+            </li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/js/tom-select.complete.min.js"></script>
+
+  <!-- Shared modal for inline entity creation (contact, card, location) -->
+  <div class="modal fade" id="dynamicModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Nuevo</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="dynamicModalBody">
+          <div class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for full card image preview -->
+  <div class="modal fade" id="cardImageModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content text-center p-3" style="background:#090314 !important; border: 1px solid var(--eva-purple);">
+        <div class="d-flex justify-content-between align-items-center mb-2 px-2">
+          <h6 class="modal-title mb-0" id="cardModalTitle" style="color:var(--eva-green)!important;">Carta</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <img id="cardModalImg" src="" referrerpolicy="no-referrer" class="img-fluid rounded mx-auto" style="max-height:75vh; object-fit:contain;">
+      </div>
+    </div>
+  </div>
+
+  <script>
+  function openCardModal(url, title, code) {
+    document.getElementById('cardModalTitle').textContent = (code ? code + ' — ' : '') + title;
+    document.getElementById('cardModalImg').src = url;
+    new bootstrap.Modal(document.getElementById('cardImageModal')).show();
+  }
+  // Forward CSRF token to all htmx requests
+  document.body.addEventListener('htmx:configRequest', function (e) {
+    const t = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (t) e.detail.headers['X-CSRFToken'] = t.value;
+  });
+
+  // After a contact/card/location is created in a modal, add it to the target tom-select and close modal
+  document.body.addEventListener('entityCreated', function (e) {
+    const { id, name, selectId } = e.detail;
+    const el = document.getElementById(selectId);
+    if (el && el.tomselect) {
+      el.tomselect.addOption({ value: id, text: name });
+      el.tomselect.setValue(id);
+    }
+    bootstrap.Modal.getInstance(document.getElementById('dynamicModal'))?.hide();
+  });
+
+  // Initialize tom-select on elements with class ts-select
+  function initTomSelects(root) {
+    (root || document).querySelectorAll('.ts-select').forEach(function (el) {
+      if (!el.tomselect) {
+        new TomSelect(el, { allowEmptyOption: true, placeholder: '— seleccionar —' });
+      }
+    });
+  }
+  document.addEventListener('DOMContentLoaded', function () { initTomSelects(); });
+  </script>
+</body>
+</html>

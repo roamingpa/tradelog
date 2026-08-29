@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+{% block title %}{% if editing %}Editar compra{% else %}Nueva compra{% endif %} — Tradelog{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0">{% if editing %}Editar compra{% else %}Nueva compra{% endif %}</h1>
+  <a href="{% if editing %}{% url 'purchase-detail' form.instance.pk %}{% else %}{% url 'purchase-list' %}{% endif %}" class="btn btn-sm btn-outline-secondary">Cancelar</a>
+</div>
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  {{ formset.management_form }}
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+  {% endif %}
+
+  <div class="card mb-3">
+    <div class="card-header fw-semibold">Información general</div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-7 col-sm-6">
+          <label class="form-label">Fecha del acuerdo *</label>
+          {{ form.date }}
+          {% if form.date.errors %}<div class="text-danger small">{{ form.date.errors|join:", " }}</div>{% endif %}
+        </div>
+        <div class="col-5 col-sm-6">
+          <label class="form-label">Moneda</label>
+          {{ form.currency }}
+        </div>
+        <div class="col-12">
+          <div class="form-check form-switch">
+            {{ form.is_shipping }}
+            <label class="form-check-label" for="id_is_shipping">Es por envío (no retiro presencial)</label>
+          </div>
+        </div>
+        <div class="col-12">
+          <label class="form-label" id="fulfillment-label">Fecha de retiro</label>
+          {{ form.fulfillment_date }}
+          {% if form.fulfillment_date.errors %}<div class="text-danger small">{{ form.fulfillment_date.errors|join:", " }}</div>{% endif %}
+        </div>
+        <div class="col-12">
+          <label class="form-label">Vendedor</label>
+          <div class="d-flex gap-2">
+            <div class="flex-grow-1">{{ form.seller }}</div>
+            <button type="button" class="btn btn-outline-secondary flex-shrink-0"
+                    hx-get="{% url 'contact-new' %}?select=id_seller"
+                    hx-target="#dynamicModalBody"
+                    data-bs-toggle="modal" data-bs-target="#dynamicModal" title="Nuevo contacto">
+              <i class="bi bi-person-plus-fill"></i>
+            </button>
+          </div>
+        </div>
+        <div class="col-12" id="location-field">
+          <label class="form-label" id="location-label">Lugar</label>
+          <div class="d-flex gap-2">
+            <div class="flex-grow-1">{{ form.location }}</div>
+            <button type="button" class="btn btn-outline-secondary flex-shrink-0"
+                    hx-get="{% url 'location-new' %}?select=id_location"
+                    hx-target="#dynamicModalBody"
+                    data-bs-toggle="modal" data-bs-target="#dynamicModal" title="Nuevo lugar">
+              <i class="bi bi-geo-alt-fill"></i>
+            </button>
+          </div>
+        </div>
+        <div class="col-6" id="time-from-field">
+          <label class="form-label">Desde</label>
+          {{ form.time_from }}
+        </div>
+        <div class="col-6" id="time-to-field">
+          <label class="form-label">Hasta</label>
+          {{ form.time_to }}
+        </div>
+        <div class="col-12">
+          <label class="form-label" id="instructions-label">Instrucciones de entrega</label>
+          {{ form.instructions }}
+        </div>
+        <div class="col-12">
+          <label class="form-label">Notas</label>
+          {{ form.notes }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span class="fw-semibold">Cartas</span>
+      <button type="button" class="btn btn-sm btn-outline-primary" id="add-item">
+        <i class="bi bi-plus-lg"></i> Agregar
+      </button>
+    </div>
+    <div id="formset-container">
+      {% for f in formset %}
+        <div class="item-row px-3 py-2 border-bottom">
+          {{ f.id }}
+          <div class="row g-2 align-items-end">
+            <div class="col-12">
+              <label class="form-label small mb-1">Carta</label>
+              <div class="d-flex gap-2 align-items-center">
+                <img class="card-img-preview flex-shrink-0" src="" referrerpolicy="no-referrer"
+                     style="height:55px;width:40px;border-radius:4px;object-fit:contain;display:none;background:#090314;"
+                     onerror="this.style.display='none'">
+                <div class="flex-grow-1">{{ f.card }}</div>
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0"
+                        hx-get="{% url 'card-new' %}?select=id_items-{{ forloop.counter0 }}-card"
+                        hx-target="#dynamicModalBody"
+                        data-bs-toggle="modal" data-bs-target="#dynamicModal" title="Nueva carta">
+                  <i class="bi bi-plus"></i>
+                </button>
+              </div>
+              {% if f.card.errors %}<div class="text-danger small">{{ f.card.errors|join:", " }}</div>{% endif %}
+            </div>
+            <div class="col-5">
+              <label class="form-label small mb-1">Cantidad</label>
+              {{ f.quantity }}
+            </div>
+            <div class="col-5">
+              <label class="form-label small mb-1">Precio (<span class="currency-symbol">CLP</span>)</label>
+              {{ f.unit_price }}
+            </div>
+            <div class="col-2 text-end">
+              <button type="button" class="btn btn-sm btn-outline-danger remove-item" title="Quitar">
+                <i class="bi bi-x-lg"></i>
+              </button>
+              <span style="display:none">{{ f.DELETE }}</span>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <small class="text-muted text-uppercase">Total estimado</small>
+      <span class="fw-bold fs-5 text-success"><span id="live-total">0</span> <span class="currency-symbol">CLP</span></span>
+    </div>
+  </div>
+
+  <div class="d-grid mb-4">
+    <button type="submit" class="btn btn-primary btn-lg">
+      <i class="bi bi-check-lg me-1"></i> {% if editing %}Guardar cambios{% else %}Guardar compra{% endif %}
+    </button>
+  </div>
+</form>
+
+<script type="text/template" id="empty-item-tpl">
+<div class="item-row px-3 py-2 border-bottom">
+  {{ formset.empty_form.id }}
+  <div class="row g-2 align-items-end">
+    <div class="col-12">
+      <label class="form-label small mb-1">Carta</label>
+      <div class="d-flex gap-2 align-items-center">
+        <img class="card-img-preview flex-shrink-0" src="" referrerpolicy="no-referrer"
+             style="height:55px;width:40px;border-radius:4px;object-fit:contain;display:none;background:#090314;"
+             onerror="this.style.display='none'">
+        <div class="flex-grow-1">{{ formset.empty_form.card }}</div>
+        <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0"
+                hx-get="{% url 'card-new' %}?select=id_items-__prefix__-card"
+                hx-target="#dynamicModalBody"
+                data-bs-toggle="modal" data-bs-target="#dynamicModal" title="Nueva carta">
+          <i class="bi bi-plus"></i>
+        </button>
+      </div>
+    </div>
+    <div class="col-5">
+      <label class="form-label small mb-1">Cantidad</label>
+      {{ formset.empty_form.quantity }}
+    </div>
+    <div class="col-5">
+      <label class="form-label small mb-1">Precio (<span class="currency-symbol">CLP</span>)</label>
+      {{ formset.empty_form.unit_price }}
+    </div>
+    <div class="col-2 text-end">
+      <button type="button" class="btn btn-sm btn-outline-danger remove-item" title="Quitar">
+        <i class="bi bi-x-lg"></i>
+      </button>
+      <span style="display:none">{{ formset.empty_form.DELETE }}</span>
+    </div>
+  </div>
+</div>
+</script>
+
+<script>
+(function () {
+  var totalInput = document.getElementById('id_items-TOTAL_FORMS');
+  var currencySelect = document.getElementById('id_currency');
+  var shippingCheck = document.getElementById('id_is_shipping');
+
+  function syncShipping() {
+    var isShipping = shippingCheck.checked;
+    document.getElementById('fulfillment-label').textContent = isShipping ? 'Fecha de envío' : 'Fecha de retiro';
+    document.getElementById('location-label').textContent = isShipping ? 'Dirección de envío' : 'Lugar';
+    document.getElementById('instructions-label').textContent = isShipping ? 'Instrucciones de envío' : 'Instrucciones de entrega';
+  }
+  if (shippingCheck) {
+    shippingCheck.addEventListener('change', syncShipping);
+    syncShipping();
+  }
+
+  var CARD_IMAGES = {
+    {% for card in cards %}
+      "{{ card.pk }}": "{{ card.image_url }}",
+    {% endfor %}
+  };
+
+  function updateCardPreview(row) {
+    var select = row.querySelector('select[name$="-card"]');
+    var img = row.querySelector('.card-img-preview');
+    if (!select || !img) return;
+    var cardId = select.value;
+    if (cardId && CARD_IMAGES[cardId]) {
+      img.src = CARD_IMAGES[cardId];
+      img.style.display = 'block';
+    } else {
+      img.style.display = 'none';
+      img.src = '';
+    }
+  }
+
+  function syncCurrency() {
+    var symbol = currencySelect ? currencySelect.value : 'CLP';
+    document.querySelectorAll('.currency-symbol').forEach(function (el) {
+      el.textContent = symbol;
+    });
+    var isClp = symbol === 'CLP';
+    document.querySelectorAll('[name$="-unit_price"]').forEach(function (inp) {
+      inp.step = isClp ? '1' : '0.01';
+    });
+  }
+
+  if (currencySelect) {
+    currencySelect.addEventListener('change', function () {
+      syncCurrency();
+      updateTotal();
+    });
+    syncCurrency();
+  }
+
+  // Attach card image listener to a row
+  function initRow(row) {
+    var select = row.querySelector('select[name$="-card"]');
+    if (select) {
+      select.addEventListener('change', function () { updateCardPreview(row); });
+      updateCardPreview(row);
+      if (select.tomselect) {
+        select.tomselect.on('change', function () { updateCardPreview(row); });
+      }
+    }
+  }
+
+  document.querySelectorAll('#formset-container .item-row').forEach(initRow);
+
+  document.getElementById('add-item').addEventListener('click', function () {
+    var idx = parseInt(totalInput.value, 10);
+    var html = document.getElementById('empty-item-tpl').textContent.replace(/__prefix__/g, idx);
+    var tmp = document.createElement('div');
+    tmp.innerHTML = html.trim();
+    var row = tmp.firstElementChild;
+    document.getElementById('formset-container').appendChild(row);
+    totalInput.value = idx + 1;
+    row.querySelectorAll('.ts-select').forEach(function (el) {
+      var ts = new TomSelect(el, { allowEmptyOption: true, placeholder: '— seleccionar —' });
+      ts.on('change', function () { updateCardPreview(row); });
+    });
+    htmx.process(row);
+    initRow(row);
+    syncCurrency();
+  });
+
+  document.getElementById('formset-container').addEventListener('input', updateTotal);
+
+  function updateTotal() {
+    var total = 0;
+    document.querySelectorAll('#formset-container .item-row').forEach(function (row) {
+      if (row.style.display === 'none') return;
+      var qty = parseFloat(row.querySelector('[name$="-quantity"]')?.value) || 0;
+      var price = parseFloat(row.querySelector('[name$="-unit_price"]')?.value) || 0;
+      total += qty * price;
+    });
+    var symbol = currencySelect ? currencySelect.value : 'CLP';
+    var isClp = symbol === 'CLP';
+    if (isClp) {
+      document.getElementById('live-total').textContent = Math.round(total).toLocaleString('es-CL');
+    } else {
+      document.getElementById('live-total').textContent = total.toLocaleString('es-CL', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+  }
+
+  document.getElementById('formset-container').addEventListener('click', function (e) {
+    var btn = e.target.closest('.remove-item');
+    if (!btn) return;
+    var row = btn.closest('.item-row');
+    var del = row.querySelector('[name$="-DELETE"]');
+    if (del) { del.checked = true; row.style.display = 'none'; }
+    else { row.remove(); }
+    updateTotal();
+  });
+
+  // Listen for newly created cards via HTMX modal
+  document.body.addEventListener('entityCreated', function (e) {
+    var { id, name, selectId } = e.detail;
+    var select = document.getElementById(selectId);
+    if (select && select.name.endsWith('-card')) {
+      // Fetch card image URL or add to dictionary if available
+      var row = select.closest('.item-row');
+      if (row) updateCardPreview(row);
+    }
+  });
+}());
+</script>
+{% endblock %}

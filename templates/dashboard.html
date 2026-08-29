@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Tradelog{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  #day-map { background: #140a26; }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #1a0e33; color: #f5f3ff; }
+  .leaflet-popup-content a { color: #4ade80 !important; }
+  .checklist-item.completed { opacity: .55; }
+  .checklist-item.completed .item-title { text-decoration: line-through; }
+  .form-check-input.check-lg { width: 1.4em; height: 1.4em; cursor: pointer; }
+</style>
+
+<div class="row g-4">
+
+  <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <h1 class="h3 mb-0">Dashboard</h1>
+    <form method="get" class="d-flex align-items-center gap-2">
+      <a class="btn btn-outline-secondary btn-sm"
+         href="?date={{ prev_date|default:selected_date }}"
+         onclick="event.preventDefault(); shiftDate(-1);">
+        <i class="bi bi-chevron-left"></i>
+      </a>
+      <input type="date" name="date" id="date-picker" class="form-control form-control-sm"
+             value="{{ selected_date|date:'Y-m-d' }}" onchange="this.form.submit()">
+      <a class="btn btn-outline-secondary btn-sm"
+         href="#" onclick="event.preventDefault(); shiftDate(1);">
+        <i class="bi bi-chevron-right"></i>
+      </a>
+      <button type="submit" class="btn btn-sm btn-outline-success" title="Hoy" onclick="document.getElementById('date-picker').valueAsDate=new Date();">
+        Hoy
+      </button>
+    </form>
+  </div>
+
+  <!-- Checklist del día -->
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-check2-square me-1"></i> Agenda del {{ selected_date|date:"d/m/Y" }}
+      </div>
+      <div class="card-body p-0" style="max-height:520px; overflow-y:auto;">
+        {% if day_purchases or day_sales %}
+          <ul class="list-group list-group-flush">
+            {% for p in day_purchases %}
+              <li class="list-group-item checklist-item d-flex align-items-start gap-2 {% if p.is_completed %}completed{% endif %}"
+                  id="purchase-row-{{ p.pk }}">
+                <input type="checkbox" class="form-check-input check-lg mt-1 toggle-check"
+                       data-url="{% url 'purchase-toggle' p.pk %}" data-row="purchase-row-{{ p.pk }}"
+                       {% if p.is_completed %}checked{% endif %}>
+                <div class="flex-grow-1">
+                  <div class="d-flex justify-content-between">
+                    <a href="{% url 'purchase-detail' p.pk %}" class="text-decoration-none item-title fw-semibold">
+                      <span class="badge bg-secondary me-1"><i class="bi bi-cart-down"></i> Compra</span>
+                      {% if p.is_shipping %}<span class="badge bg-primary me-1"><i class="bi bi-truck"></i> Envío</span>{% endif %}
+                      {{ p.seller|default:"Sin vendedor" }}
+                    </a>
+                    <small class="text-muted">
+                      {% if p.time_from %}{{ p.time_from|time:"H:i" }}{% if p.time_to %}–{{ p.time_to|time:"H:i" }}{% endif %}{% endif %}
+                    </small>
+                  </div>
+                  <small class="text-muted"><i class="bi bi-geo-alt"></i> {{ p.location|default:"Sin lugar" }}</small>
+                </div>
+              </li>
+            {% endfor %}
+            {% for s in day_sales %}
+              <li class="list-group-item checklist-item d-flex align-items-start gap-2 {% if s.is_completed %}completed{% endif %}"
+                  id="sale-row-{{ s.pk }}">
+                <input type="checkbox" class="form-check-input check-lg mt-1 toggle-check"
+                       data-url="{% url 'sale-toggle' s.pk %}" data-row="sale-row-{{ s.pk }}"
+                       {% if s.is_completed %}checked{% endif %}>
+                <div class="flex-grow-1">
+                  <div class="d-flex justify-content-between">
+                    <a href="{% url 'sale-detail' s.pk %}" class="text-decoration-none item-title fw-semibold">
+                      <span class="badge bg-secondary me-1"><i class="bi bi-cart-up"></i> Venta</span>
+                      {% if s.is_shipping %}<span class="badge bg-primary me-1"><i class="bi bi-truck"></i> Envío</span>{% endif %}
+                      {{ s.buyer|default:"Sin comprador" }}
+                    </a>
+                    <small class="text-muted">
+                      {% if s.time_from %}{{ s.time_from|time:"H:i" }}{% if s.time_to %}–{{ s.time_to|time:"H:i" }}{% endif %}{% endif %}
+                    </small>
+                  </div>
+                  <small class="text-muted"><i class="bi bi-geo-alt"></i> {{ s.location|default:"Sin lugar" }}</small>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted p-3 mb-0">Sin compras ni ventas programadas para este día.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Mapa del día -->
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-map me-1"></i> Recorrido del día
+      </div>
+      <div class="card-body p-0">
+        <div id="day-map" style="height:520px; width:100%;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Últimas compras -->
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-cart-down me-1"></i> Últimas compras</span>
+        <a href="{% url 'purchase-list' %}" class="btn btn-sm btn-outline-primary">Ver todas</a>
+      </div>
+      <div class="card-body p-0">
+        {% if recent_purchases %}
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Fecha</th>
+                  <th>Vendedor</th>
+                  <th>Lugar</th>
+                  <th class="text-end">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in recent_purchases %}
+                <tr>
+                  <td><a href="{% url 'purchase-detail' p.pk %}" class="text-decoration-none fw-semibold">{{ p.date|date:"d/m/Y" }}</a></td>
+                  <td>{{ p.seller|default:"—" }}</td>
+                  <td>{{ p.location|default:"—" }}</td>
+                  <td class="text-end">{{ p.formatted_total }} {{ p.currency }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-muted p-3 mb-0">Sin compras registradas.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Últimas ventas -->
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-cart-up me-1"></i> Últimas ventas</span>
+        <a href="{% url 'sale-list' %}" class="btn btn-sm btn-outline-success">Ver todas</a>
+      </div>
+      <div class="card-body p-0">
+        {% if recent_sales %}
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Fecha</th>
+                  <th>Comprador</th>
+                  <th>Lugar</th>
+                  <th class="text-end">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for s in recent_sales %}
+                <tr>
+                  <td><a href="{% url 'sale-detail' s.pk %}" class="text-decoration-none fw-semibold">{{ s.date|date:"d/m/Y" }}</a></td>
+                  <td>{{ s.buyer|default:"—" }}</td>
+                  <td>{{ s.location|default:"—" }}</td>
+                  <td class="text-end">{{ s.formatted_total }} {{ s.currency }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-muted p-3 mb-0">Sin ventas registradas.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function () {
+  var SELECTED_DATE = "{{ selected_date|date:'Y-m-d' }}";
+
+  window.shiftDate = function (deltaDays) {
+    var picker = document.getElementById('date-picker');
+    var d = new Date(picker.value + 'T00:00:00');
+    d.setDate(d.getDate() + deltaDays);
+    picker.valueAsDate = d;
+    picker.form.submit();
+  };
+
+  // Toggle checklist completion via AJAX
+  document.querySelectorAll('.toggle-check').forEach(function (chk) {
+    chk.addEventListener('change', function () {
+      var url = chk.dataset.url;
+      var rowId = chk.dataset.row;
+      fetch(url, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') },
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var row = document.getElementById(rowId);
+          if (row) row.classList.toggle('completed', data.is_completed);
+          updateMarkerStyle(rowId, data.is_completed);
+        });
+    });
+  });
+
+  function getCookie(name) {
+    var value = '; ' + document.cookie;
+    var parts = value.split('; ' + name + '=');
+    if (parts.length === 2) return parts.pop().split(';').shift();
+  }
+
+  // Map setup
+  var points = {{ map_points|safe }};
+  var map = L.map('day-map').setView([-33.4489, -70.6693], 11); // Santiago default
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 19,
+  }).addTo(map);
+
+  var markers = {};
+  var bounds = [];
+  var geocodeCache = {};
+
+  function iconFor(completed) {
+    return L.divIcon({
+      className: '',
+      html: '<div style="width:16px;height:16px;border-radius:50%;background:' +
+        (completed ? '#22c55e' : '#9333ea') +
+        ';border:2px solid #fff;box-shadow:0 0 6px rgba(0,0,0,.6);"></div>',
+      iconSize: [16, 16],
+    });
+  }
+
+  function updateMarkerStyle(rowId, completed) {
+    var parts = rowId.split('-');
+    var kind = parts[0], id = parts[2];
+    var key = kind + '-' + id;
+    if (markers[key]) markers[key].setIcon(iconFor(completed));
+  }
+
+  function geocodeAndPlace(point) {
+    var query = point.address || point.location_name;
+    if (!query) return;
+    if (geocodeCache[query]) {
+      placeMarker(point, geocodeCache[query]);
+      return;
+    }
+    // Bias results towards Chile so ambiguous place names (e.g. "Metro San Miguel")
+    // don't resolve to a same-named place in another country.
+    var biasedQuery = /chile/i.test(query) ? query : query + ', Chile';
+    var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(biasedQuery) +
+      '&format=json&limit=1&countrycodes=cl';
+    fetch(url)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.length) {
+          var latlng = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+          geocodeCache[query] = latlng;
+          placeMarker(point, latlng);
+        } else {
+          console.warn('Sin resultados de geocodificación para:', query);
+        }
+      })
+      .catch(function (err) {
+        console.error('Error geocodificando', query, err);
+      });
+  }
+
+  function placeMarker(point, latlng) {
+    var marker = L.marker(latlng, { icon: iconFor(point.completed) }).addTo(map);
+    var timeStr = point.time_from ? (point.time_from + (point.time_to ? '–' + point.time_to : '')) : '';
+    marker.bindPopup(
+      '<strong>' + point.label + '</strong><br>' +
+      (timeStr ? timeStr + '<br>' : '') +
+      (point.location_name || '') + '<br>' +
+      '<a href="' + point.url + '">Ver detalle</a>'
+    );
+    markers[point.kind + '-' + point.id] = marker;
+    bounds.push(latlng);
+    if (bounds.length) map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
+  }
+
+  points.forEach(function (p, idx) {
+    setTimeout(function () { geocodeAndPlace(p); }, idx * 600); // stagger to respect Nominatim rate limit
+  });
+}());
+</script>
+{% endblock %}

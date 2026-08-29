@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Ventas — Tradelog{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3"><i class="bi bi-cart-up me-1"></i> Ventas</h1>
+  <a href="{% url 'sale-new' %}" class="btn btn-success">
+    <i class="bi bi-plus-lg me-1"></i> Nueva venta
+  </a>
+</div>
+
+{% if sales %}
+  <div class="table-responsive">
+    <table class="table table-striped table-hover align-middle">
+      <thead class="table-dark">
+        <tr>
+          <th>Fecha</th>
+          <th>Entrega/Envío</th>
+          <th>Comprador</th>
+          <th>Lugar</th>
+          <th>Horario</th>
+          <th>Ítems</th>
+          <th class="text-end">Total</th>
+          <th>Moneda</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in sales %}
+        <tr>
+          <td><a href="{% url 'sale-detail' s.pk %}" class="text-decoration-none fw-semibold">{{ s.date|date:"d/m/Y" }}</a></td>
+          <td>
+            {{ s.fulfillment_date|date:"d/m/Y"|default:"—" }}
+            {% if s.is_shipping %}<span class="badge bg-primary"><i class="bi bi-truck"></i></span>{% endif %}
+          </td>
+          <td>{{ s.buyer|default:"—" }}</td>
+          <td>
+            {% if s.location %}
+              {{ s.location }}
+              {% if s.location.address %}
+                <br><small class="text-muted">{{ s.location.address }}</small>
+              {% endif %}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td>
+            {% if s.time_from %}
+              {{ s.time_from|time:"H:i" }}{% if s.time_to %} – {{ s.time_to|time:"H:i" }}{% endif %}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td>
+            {% for item in s.items.all %}
+              <span class="badge bg-secondary me-1" style="cursor:pointer;"
+                    onclick="openCardModal('{{ item.card.image_url|escapejs }}', '{{ item.card.name|escapejs }}', '{{ item.card.code|escapejs }}')"
+                    title="Clic para ver carta {{ item.card.name }}">
+                {{ item.quantity }}× {{ item.card.code }}
+              </span>
+            {% endfor %}
+          </td>
+          <td class="text-end fw-semibold">{{ s.formatted_total }}</td>
+          <td>{{ s.currency }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="alert alert-info">No hay ventas registradas aún.</div>
+{% endif %}
+
+{% if is_paginated %}
+<nav class="mt-3">
+  <ul class="pagination justify-content-center">
+    {% if page_obj.has_previous %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">«</a></li>
+    {% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">»</a></li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}
+{% endblock %}
