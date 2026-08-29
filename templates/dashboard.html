@@ -38,51 +38,52 @@
   <!-- Checklist del día -->
   <div class="col-lg-5">
     <div class="card h-100">
-      <div class="card-header fw-semibold">
-        <i class="bi bi-check2-square me-1"></i> Agenda del {{ selected_date|date:"d/m/Y" }}
+      <div class="card-header d-flex justify-content-between align-items-center py-2 flex-wrap gap-2">
+        <span class="fw-semibold"><i class="bi bi-check2-square me-1"></i> Agenda del {{ selected_date|date:"d/m/Y" }}</span>
+        <div class="d-flex align-items-center gap-1">
+          <label class="small text-muted mb-0 me-1"><i class="bi bi-arrow-down-up"></i></label>
+          <select id="agenda-sort" class="form-select form-select-sm py-0 px-2" style="font-size:0.75rem; width:auto;">
+            <option value="time">Por hora</option>
+            <option value="status">Pendientes 1°</option>
+            <option value="type">Compras 1°</option>
+            <option value="name">Por nombre</option>
+          </select>
+        </div>
       </div>
       <div class="card-body p-0" style="max-height:520px; overflow-y:auto;">
-        {% if day_purchases or day_sales %}
-          <ul class="list-group list-group-flush">
-            {% for p in day_purchases %}
-              <li class="list-group-item checklist-item d-flex align-items-start gap-2 {% if p.is_completed %}completed{% endif %}"
-                  id="purchase-row-{{ p.pk }}">
+        {% if agenda_items %}
+          <ul class="list-group list-group-flush" id="agenda-list">
+            {% for item in agenda_items %}
+              <li class="list-group-item checklist-item d-flex align-items-start gap-2 {% if item.is_completed %}completed{% endif %}"
+                  id="{{ item.kind }}-row-{{ item.pk }}"
+                  data-kind="{{ item.kind }}"
+                  data-time="{{ item.time_str }}"
+                  data-completed="{% if item.is_completed %}1{% else %}0{% endif %}"
+                  data-name="{{ item.party|lower }}">
                 <input type="checkbox" class="form-check-input check-lg mt-1 toggle-check"
-                       data-url="{% url 'purchase-toggle' p.pk %}" data-row="purchase-row-{{ p.pk }}"
-                       {% if p.is_completed %}checked{% endif %}>
+                       data-url="{{ item.toggle_url }}" data-row="{{ item.kind }}-row-{{ item.pk }}"
+                       {% if item.is_completed %}checked{% endif %}>
                 <div class="flex-grow-1">
-                  <div class="d-flex justify-content-between">
-                    <a href="{% url 'purchase-detail' p.pk %}" class="text-decoration-none item-title fw-semibold">
-                      <span class="badge bg-secondary me-1"><i class="bi bi-cart-down"></i> Compra</span>
-                      {% if p.is_shipping %}<span class="badge bg-primary me-1"><i class="bi bi-truck"></i> Envío</span>{% endif %}
-                      {{ p.seller|default:"Sin vendedor" }}
+                  <div class="d-flex justify-content-between align-items-center">
+                    <a href="{{ item.detail_url }}" class="text-decoration-none item-title fw-semibold">
+                      {% if item.kind == 'purchase' %}
+                        <span class="badge bg-secondary me-1"><i class="bi bi-cart-down"></i> Compra</span>
+                      {% else %}
+                        <span class="badge bg-secondary me-1"><i class="bi bi-cart-up"></i> Venta</span>
+                      {% endif %}
+                      {% if item.is_shipping %}<span class="badge bg-primary me-1"><i class="bi bi-truck"></i> Envío</span>{% endif %}
+                      {{ item.party }}
                     </a>
-                    <small class="text-muted">
-                      {% if p.time_from %}{{ p.time_from|time:"H:i" }}{% if p.time_to %}–{{ p.time_to|time:"H:i" }}{% endif %}{% endif %}
+                    <small class="text-muted fw-semibold">
+                      {% if item.time_from %}{{ item.time_from|time:"H:i" }}{% if item.time_to %}–{{ item.time_to|time:"H:i" }}{% endif %}{% else %}<span class="text-muted opacity-50">—</span>{% endif %}
                     </small>
                   </div>
-                  <small class="text-muted"><i class="bi bi-geo-alt"></i> {{ p.location|default:"Sin lugar" }}</small>
-                </div>
-              </li>
-            {% endfor %}
-            {% for s in day_sales %}
-              <li class="list-group-item checklist-item d-flex align-items-start gap-2 {% if s.is_completed %}completed{% endif %}"
-                  id="sale-row-{{ s.pk }}">
-                <input type="checkbox" class="form-check-input check-lg mt-1 toggle-check"
-                       data-url="{% url 'sale-toggle' s.pk %}" data-row="sale-row-{{ s.pk }}"
-                       {% if s.is_completed %}checked{% endif %}>
-                <div class="flex-grow-1">
-                  <div class="d-flex justify-content-between">
-                    <a href="{% url 'sale-detail' s.pk %}" class="text-decoration-none item-title fw-semibold">
-                      <span class="badge bg-secondary me-1"><i class="bi bi-cart-up"></i> Venta</span>
-                      {% if s.is_shipping %}<span class="badge bg-primary me-1"><i class="bi bi-truck"></i> Envío</span>{% endif %}
-                      {{ s.buyer|default:"Sin comprador" }}
-                    </a>
-                    <small class="text-muted">
-                      {% if s.time_from %}{{ s.time_from|time:"H:i" }}{% if s.time_to %}–{{ s.time_to|time:"H:i" }}{% endif %}{% endif %}
+                  <div class="d-flex justify-content-between align-items-center mt-1">
+                    <small class="text-muted text-truncate" style="max-width: 220px;">
+                      <i class="bi bi-geo-alt"></i> {{ item.location|default:"Sin lugar" }}
                     </small>
+                    <small class="fw-semibold text-success">{{ item.total }} {{ item.currency }}</small>
                   </div>
-                  <small class="text-muted"><i class="bi bi-geo-alt"></i> {{ s.location|default:"Sin lugar" }}</small>
                 </div>
               </li>
             {% endfor %}
@@ -197,6 +198,29 @@
     picker.form.submit();
   };
 
+  // Agenda sorting
+  var sortSelect = document.getElementById('agenda-sort');
+  var agendaList = document.getElementById('agenda-list');
+  if (sortSelect && agendaList) {
+    sortSelect.addEventListener('change', function() {
+      var mode = sortSelect.value;
+      var items = Array.from(agendaList.querySelectorAll('.checklist-item'));
+      items.sort(function(a, b) {
+        if (mode === 'status') {
+          return (a.dataset.completed || '0').localeCompare(b.dataset.completed || '0');
+        } else if (mode === 'type') {
+          return (a.dataset.kind || '').localeCompare(b.dataset.kind || '');
+        } else if (mode === 'name') {
+          return (a.dataset.name || '').localeCompare(b.dataset.name || '');
+        } else {
+          // By time
+          return (a.dataset.time || '99:99').localeCompare(b.dataset.time || '99:99');
+        }
+      });
+      items.forEach(function(el) { agendaList.appendChild(el); });
+    });
+  }
+
   // Toggle checklist completion via AJAX
   document.querySelectorAll('.toggle-check').forEach(function (chk) {
     chk.addEventListener('change', function () {
@@ -209,7 +233,10 @@
         .then(function (r) { return r.json(); })
         .then(function (data) {
           var row = document.getElementById(rowId);
-          if (row) row.classList.toggle('completed', data.is_completed);
+          if (row) {
+            row.classList.toggle('completed', data.is_completed);
+            row.dataset.completed = data.is_completed ? '1' : '0';
+          }
           updateMarkerStyle(rowId, data.is_completed);
         });
     });
@@ -221,25 +248,16 @@
     if (parts.length === 2) return parts.pop().split(';').shift();
   }
 
-  // Map setup
+  // Map setup (initialized once)
   var points = {{ map_points|safe }};
-  var map = L.map('day-map').setView([-33.4489, -70.6693], 11); // Santiago default
+  var map = L.map('day-map').setView([-33.4489, -70.6693], 11);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors',
     maxZoom: 19,
   }).addTo(map);
 
-  // Map setup
-  var points = {{ map_points|safe }};
-  var map = L.map('day-map').setView([-33.4489, -70.6693], 11); // Santiago default
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors',
-    maxZoom: 19,
-  }).addTo(map);
-
-  var locationGroups = {}; // key -> { latlng, points: [] }
-  var markersByItem = {};  // itemKey -> marker
-  var locationMarkers = {}; // locKey -> { marker, points: [] }
+  var locationMarkers = {}; // locKey -> { marker, points: [], locName }
+  var markersByItem = {};   // itemKey -> locKey
   var bounds = [];
   var geocodeCache = {};
 
@@ -248,21 +266,23 @@
     var allCompleted = pointsAtLoc.every(function(p) { return p.completed; });
     var color = allCompleted ? '#22c55e' : '#9333ea';
     var border = allCompleted ? '#14532d' : '#581c87';
-    var badgeText = total > 1 ? '<span style="position:absolute;top:-6px;right:-8px;background:#f59e0b;color:#000;font-size:10px;font-weight:900;border-radius:10px;padding:0 4px;border:1px solid #000;line-height:14px;">' + total + '</span>' : '';
+    var badgeText = total > 1
+      ? '<span style="position:absolute;top:-7px;right:-9px;background:#f59e0b;color:#000;font-size:10px;font-weight:900;border-radius:10px;padding:0 5px;border:1px solid #000;line-height:14px;box-shadow:0 1px 4px rgba(0,0,0,0.5);">' + total + '</span>'
+      : '';
 
     return L.divIcon({
       className: '',
-      html: '<div style="position:relative;width:20px;height:20px;border-radius:50%;background:' + color + ';border:3px solid #fff;box-shadow:0 0 8px rgba(0,0,0,0.8);">' + badgeText + '</div>',
-      iconSize: [20, 20],
-      iconAnchor: [10, 10],
-      popupAnchor: [0, -10]
+      html: '<div style="position:relative;width:22px;height:22px;border-radius:50%;background:' + color + ';border:3px solid #fff;box-shadow:0 0 10px rgba(0,0,0,0.8);">' + badgeText + '</div>',
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
+      popupAnchor: [0, -11]
     });
   }
 
   function buildPopupContent(pointsAtLoc, locName) {
-    var html = '<div style="min-width:200px;">';
-    html += '<h6 style="color:#22c55e;margin-bottom:6px;font-size:0.9rem;border-bottom:1px solid #581c87;padding-bottom:4px;"><i class="bi bi-geo-alt-fill me-1"></i>' + (locName || 'Lugar de encuentro') + '</h6>';
-    html += '<div style="display:flex;flex-direction:column;gap:8px;">';
+    var html = '<div style="min-width:210px;">';
+    html += '<h6 style="color:#22c55e;margin-bottom:6px;font-size:0.9rem;border-bottom:1px solid #581c87;padding-bottom:4px;"><i class="bi bi-geo-alt-fill me-1 text-danger"></i>' + (locName || 'Lugar') + '</h6>';
+    html += '<div style="display:flex;flex-direction:column;gap:6px;">';
     pointsAtLoc.forEach(function(p) {
       var timeStr = p.time_from ? (p.time_from + (p.time_to ? '–' + p.time_to : '')) : '';
       var statusBadge = p.completed
@@ -278,7 +298,7 @@
       if (timeStr) html += '<small style="color:#c4b5fd;font-size:0.75rem;"><i class="bi bi-clock me-1"></i>' + timeStr + '</small>';
       html += '</div>';
       html += '<div style="font-weight:600;font-size:0.85rem;margin:2px 0;">' + p.label + '</div>';
-      html += '<a href="' + p.url + '" style="font-size:0.75rem;color:#22c55e;text-decoration:underline;">Ver detalle completo &rarr;</a>';
+      html += '<a href="' + p.url + '" style="font-size:0.75rem;color:#22c55e;text-decoration:underline;">Ver detalle &rarr;</a>';
       html += '</div>';
     });
     html += '</div></div>';
@@ -290,14 +310,12 @@
     var kind = parts[0], id = parts[2];
     var itemKey = kind + '-' + id;
 
-    // Find and update the point inside points
     points.forEach(function(p) {
       if (p.kind === kind && String(p.id) === String(id)) {
         p.completed = completed;
       }
     });
 
-    // Re-render the marker icon and popup for this location group
     var locKey = markersByItem[itemKey];
     if (locKey && locationMarkers[locKey]) {
       var group = locationMarkers[locKey];
@@ -306,20 +324,47 @@
     }
   }
 
-  function geocodeAndPlace(point) {
-    var query = point.address || point.location_name;
-    if (!query) return;
-
-    var locKey = (point.location_name + '||' + (point.address || '')).toLowerCase();
-
+  function createGroupMarker(locKey, point, latlng) {
     if (locationMarkers[locKey]) {
-      // Already geocoded and marker exists! Add point to this marker group
       locationMarkers[locKey].points.push(point);
       markersByItem[point.kind + '-' + point.id] = locKey;
       locationMarkers[locKey].marker.setIcon(makeIcon(locationMarkers[locKey].points));
       locationMarkers[locKey].marker.setPopupContent(
         buildPopupContent(locationMarkers[locKey].points, point.location_name)
       );
+      return;
+    }
+
+    var pointsList = [point];
+    var marker = L.marker(latlng, { icon: makeIcon(pointsList) }).addTo(map);
+    marker.bindPopup(buildPopupContent(pointsList, point.location_name));
+
+    locationMarkers[locKey] = {
+      marker: marker,
+      points: pointsList,
+      locName: point.location_name,
+      latlng: latlng
+    };
+    markersByItem[point.kind + '-' + point.id] = locKey;
+    bounds.push(latlng);
+    if (bounds.length) map.fitBounds(bounds, { padding: [35, 35], maxZoom: 15 });
+  }
+
+  function processPoint(point) {
+    var locKey = (point.location_name + '||' + (point.address || '')).toLowerCase();
+
+    // 1. If point already has exact coordinates in database, plot directly!
+    if (point.lat && point.lon) {
+      createGroupMarker(locKey, point, [point.lat, point.lon]);
+      return;
+    }
+
+    // 2. Geocode via Nominatim if needed
+    var query = point.address || point.location_name;
+    if (!query) return;
+
+    if (locationMarkers[locKey]) {
+      createGroupMarker(locKey, point, locationMarkers[locKey].latlng);
       return;
     }
 
@@ -334,12 +379,10 @@
     fetch(url)
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        if (data.length) {
+        if (data && data.length) {
           var latlng = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
           geocodeCache[query] = latlng;
           createGroupMarker(locKey, point, latlng);
-        } else {
-          console.warn('Sin resultados de geocodificación para:', query);
         }
       })
       .catch(function (err) {
@@ -347,34 +390,8 @@
       });
   }
 
-  function createGroupMarker(locKey, initialPoint, latlng) {
-    if (locationMarkers[locKey]) {
-      locationMarkers[locKey].points.push(initialPoint);
-      markersByItem[initialPoint.kind + '-' + initialPoint.id] = locKey;
-      locationMarkers[locKey].marker.setIcon(makeIcon(locationMarkers[locKey].points));
-      locationMarkers[locKey].marker.setPopupContent(
-        buildPopupContent(locationMarkers[locKey].points, initialPoint.location_name)
-      );
-      return;
-    }
-
-    var pointsList = [initialPoint];
-    var marker = L.marker(latlng, { icon: makeIcon(pointsList) }).addTo(map);
-    marker.bindPopup(buildPopupContent(pointsList, initialPoint.location_name));
-
-    locationMarkers[locKey] = {
-      marker: marker,
-      points: pointsList,
-      locName: initialPoint.location_name,
-      latlng: latlng
-    };
-    markersByItem[initialPoint.kind + '-' + initialPoint.id] = locKey;
-    bounds.push(latlng);
-    if (bounds.length) map.fitBounds(bounds, { padding: [35, 35], maxZoom: 15 });
-  }
-
   points.forEach(function (p, idx) {
-    setTimeout(function () { geocodeAndPlace(p); }, idx * 400);
+    setTimeout(function () { processPoint(p); }, idx * 250);
   });
 }());
 </script>

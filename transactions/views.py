@@ -9,6 +9,7 @@ from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView
 
 from catalog.models import Card
+from contacts.models import Contact
 from transactions.forms import PurchaseForm, PurchaseItemFormSet, SaleForm, SaleItemFormSet
 from transactions.models import Purchase, PurchaseItem, Sale, SaleItem
 
@@ -54,6 +55,7 @@ class SaleDetailView(LoginRequiredMixin, DetailView):
 @login_required
 def purchase_create(request, pk=None):
     cards = Card.objects.all()
+    contacts = Contact.objects.filter(owner=request.user)
     instance = get_object_or_404(Purchase, pk=pk, owner=request.user) if pk else None
     if request.method == 'POST':
         form = PurchaseForm(request.POST, instance=instance, user=request.user)
@@ -70,13 +72,14 @@ def purchase_create(request, pk=None):
         form = PurchaseForm(instance=instance, user=request.user)
         formset = PurchaseItemFormSet(prefix='items', instance=instance)
     return render(request, 'transactions/purchase_form.html', {
-        'form': form, 'formset': formset, 'cards': cards, 'editing': instance is not None,
+        'form': form, 'formset': formset, 'cards': cards, 'contacts': contacts, 'editing': instance is not None,
     })
 
 
 @login_required
 def sale_create(request, pk=None):
     cards = Card.objects.all()
+    contacts = Contact.objects.filter(owner=request.user)
     instance = get_object_or_404(Sale, pk=pk, owner=request.user) if pk else None
 
     if request.method == 'POST':
@@ -94,7 +97,7 @@ def sale_create(request, pk=None):
         form = SaleForm(instance=instance, user=request.user)
         formset = SaleItemFormSet(prefix='items', instance=instance)
     return render(request, 'transactions/sale_form.html', {
-        'form': form, 'formset': formset, 'cards': cards, 'editing': instance is not None,
+        'form': form, 'formset': formset, 'cards': cards, 'contacts': contacts, 'editing': instance is not None,
     })
 
 

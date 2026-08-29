@@ -9,17 +9,25 @@
   {% endif %}
 
   <div class="mb-3">
-    <label class="form-label">Nombre *</label>
+    <label class="form-label">Nombre del lugar *</label>
     {{ form.name }}
     {% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors|join:", " }}</div>{% endif %}
   </div>
 
-  <!-- Nominatim map search -->
-  <div class="mb-2">
-    <label class="form-label">Buscar en el mapa</label>
+  <!-- Búsqueda y Google Maps -->
+  <div class="mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+      <label class="form-label mb-0">Dirección o enlace de Google Maps</label>
+      <a href="https://www.google.com/maps" target="_blank" rel="noopener" class="small text-success text-decoration-none">
+        <i class="bi bi-box-arrow-up-right me-1"></i>Abrir Google Maps
+      </a>
+    </div>
     <div class="position-relative">
-      <input type="text" id="map-search" class="form-control" placeholder="Ej: Providencia, Santiago…" autocomplete="off">
+      <input type="text" id="map-search" class="form-control" placeholder="Escribe calle, metro o pega link de Google Maps…" autocomplete="off">
       <div id="map-results" class="list-group position-absolute w-100 mt-1" style="display:none;z-index:1050;max-height:180px;overflow-y:auto"></div>
+    </div>
+    <div class="form-text small text-muted">
+      Puedes escribir una dirección (ej: <em>Paseo Las Palmas, Providencia</em>) o pegar un enlace/iframe copiado de Google Maps.
     </div>
   </div>
 
@@ -28,24 +36,138 @@
   </div>
 
   <div class="mb-3">
-    <label class="form-label">Direcci&oacute;n (texto)</label>
+    <label class="form-label">Dirección guardada</label>
     {{ form.address }}
     {% if form.address.errors %}<div class="text-danger small mt-1">{{ form.address.errors|join:", " }}</div>{% endif %}
   </div>
 
   <div class="mb-3">
-    <label class="form-label">Instrucciones</label>
+    <label class="form-label">Instrucciones de llegada / entrega</label>
     {{ form.instructions }}
     {% if form.instructions.help_text %}<div class="form-text">{{ form.instructions.help_text }}</div>{% endif %}
   </div>
 
   {{ form.maps_link }}
-  {% if form.maps_link.errors %}<div class="text-danger small mt-1">{{ form.maps_link.errors|join:", " }}</div>{% endif %}
+  {{ form.latitude }}
+  {{ form.longitude }}
 
   <div class="d-grid">
-    <button type="submit" class="btn btn-primary">Crear lugar</button>
+    <button type="submit" class="btn btn-primary">Guardar lugar</button>
   </div>
 </form>
+
+<script>
+(function () {
+  var search = document.getElementById('map-search');
+  var results = document.getElementById('map-results');
+  var preview = document.getElementById('map-preview');
+  var iframe = document.getElementById('map-iframe');
+  var mapsLink = document.querySelector('[name="maps_link"]');
+  var latInput = document.querySelector('[name="latitude"]');
+  var lonInput = document.querySelector('[name="longitude"]');
+  var addressInput = document.querySelector('[name="address"]');
+  var nameInput = document.querySelector('[name="name"]');
+  var timer;
+
+  function parseGoogleCoords(str) {
+    // Check for @lat,lng format in Google Maps URLs
+    var match = str.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (match) return { lat: parseFloat(match[1]), lon: parseFloat(match[2]) };
+    // Check for q=lat,lng or ll=lat,lng
+    var match2 = str.match(/[?&](?:q|ll)=(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (match2) return { lat: parseFloat(match2[1]), lon: parseFloat(match2[2]) };
+    // Check for plain lat, lng
+    var match3 = str.match(/^(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)$/);
+    if (match3) return { lat: parseFloat(match3[1]), lon: parseFloat(match3[2]) };
+    return null;
+  }
+
+  function setPreviewFromQuery(query, lat, lon) {
+    if (lat && lon) {
+      if (latInput) latInput.value = lat;
+      if (lonInput) lonInput.value = lon;
+    }
+    var embedUrl = 'https://maps.google.com/maps?q=' + encodeURIComponent(query) + '&t=&z=15&ie=UTF8&iwloc=&output=embed';
+    if (mapsLink) mapsLink.value = embedUrl;
+    iframe.src = embedUrl;
+    preview.style.display = 'block';
+  }
+
+  search.addEventListener('input', function () {
+    var val = this.value.trim();
+    if (!val) { results.style.display = 'none'; return; }
+
+    // Check if user pasted an iframe
+    if (val.includes('<iframe') && val.includes('src="')) {
+      var srcMatch = val.match(/src="([^"]+)"/);
+      if (srcMatch) {
+        var src = srcMatch[1];
+        if (mapsLink) mapsLink.value = src;
+        iframe.src = src;
+        preview.style.display = 'block';
+        if (!addressInput.value && nameInput.value) addressInput.value = nameInput.value;
+        return;
+      }
+    }
+
+    // Check if user pasted a Google Maps URL or coordinates
+    var coords = parseGoogleCoords(val);
+    if (coords) {
+      setPreviewFromQuery(coords.lat + ',' + coords.lon, coords.lat, coords.lon);
+      if (addressInput && !addressInput.value) addressInput.value = val.slice(0, 490);
+      return;
+    }
+
+    // Otherwise geocode via Nominatim
+    clearTimeout(timer);
+    if (val.length < 3) { results.style.display = 'none'; return; }
+    timer = setTimeout(function () {
+      var biased = /chile/i.test(val) ? val : val + ', Chile';
+      fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(biased) + '&format=json&limit=5&countrycodes=cl&accept-language=es')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          results.innerHTML = '';
+          if (!data.length) {
+            results.innerHTML = '<div class="list-group-item small text-muted py-2"><i class="bi bi-info-circle me-1"></i> No se encontró en el mapa. Puedes escribir la dirección en "Dirección guardada" o pegar un link de Google Maps.</div>';
+          } else {
+            data.forEach(function (r) {
+              var btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'list-group-item list-group-item-action small';
+              btn.textContent = r.display_name;
+              btn.addEventListener('click', function () { selectResult(r); });
+              results.appendChild(btn);
+            });
+          }
+          results.style.display = 'block';
+        });
+    }, 450);
+  });
+
+  function selectResult(r) {
+    var lat = parseFloat(r.lat), lon = parseFloat(r.lon);
+    var query = r.display_name;
+    setPreviewFromQuery(query, lat, lon);
+    var parts = query.split(',');
+    search.value = parts.slice(0, 2).join(',').trim();
+    if (addressInput) addressInput.value = query.slice(0, 490);
+    if (nameInput && !nameInput.value) nameInput.value = parts[0].trim();
+    results.style.display = 'none';
+  }
+
+  if (addressInput) {
+    addressInput.addEventListener('input', function () {
+      if (addressInput.value.trim().length >= 3) {
+        setPreviewFromQuery(addressInput.value.trim());
+      }
+    });
+  }
+
+  document.addEventListener('click', function (e) {
+    if (!search.contains(e.target) && !results.contains(e.target)) results.style.display = 'none';
+  });
+}());
+</script>
 
 <script>
 (function () {

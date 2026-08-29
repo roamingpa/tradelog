@@ -7,7 +7,9 @@ class Location(models.Model):
     name = models.CharField(max_length=200)
     address = models.CharField(max_length=500, blank=True)
     instructions = models.TextField(blank=True)
-    maps_link = models.URLField(max_length=500, blank=True, help_text="URL de embed de Google Maps (iframe)")
+    maps_link = models.URLField(max_length=1000, blank=True, help_text="URL de Google Maps (link o embed)")
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
 
     class Meta:
         ordering = ['name']

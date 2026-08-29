@@ -121,6 +121,11 @@
                      style="height:55px;width:40px;border-radius:4px;object-fit:contain;display:none;background:#090314;"
                      onerror="this.style.display='none'">
                 <div class="flex-grow-1">{{ f.card }}</div>
+                <button type="button" class="btn btn-sm btn-outline-info flex-shrink-0 card-picker-btn"
+                        data-target="id_items-{{ forloop.counter0 }}-card"
+                        title="Buscar en catálogo visual">
+                  <i class="bi bi-search"></i>
+                </button>
                 <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0"
                         hx-get="{% url 'card-new' %}?select=id_items-{{ forloop.counter0 }}-card"
                         hx-target="#dynamicModalBody"
@@ -180,6 +185,11 @@
              style="height:55px;width:40px;border-radius:4px;object-fit:contain;display:none;background:#090314;"
              onerror="this.style.display='none'">
         <div class="flex-grow-1">{{ formset.empty_form.card }}</div>
+        <button type="button" class="btn btn-sm btn-outline-info flex-shrink-0 card-picker-btn"
+                data-target="id_items-__prefix__-card"
+                title="Buscar en catálogo visual">
+          <i class="bi bi-search"></i>
+        </button>
         <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0"
                 hx-get="{% url 'card-new' %}?select=id_items-__prefix__-card"
                 hx-target="#dynamicModalBody"
@@ -212,36 +222,139 @@
 </div>
 </script>
 
+<!-- Modal de Buscador Visual de Cartas -->
+<div class="modal fade" id="cardPickerModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-search me-1" style="color:var(--eva-green);"></i> Seleccionar carta del catálogo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3">
+        <div class="input-group mb-3">
+          <span class="input-group-text bg-transparent border-secondary text-muted"><i class="bi bi-search"></i></span>
+          <input type="text" id="card-picker-search" class="form-control" placeholder="Escribe código (OP01) o nombre (Zoro, Luffy)…" autocomplete="off">
+        </div>
+        <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 g-2" id="card-picker-grid" style="max-height:60vh; overflow-y:auto;">
+          {% for card in cards %}
+            <div class="col card-picker-item"
+                 data-id="{{ card.pk }}"
+                 data-code="{{ card.code|lower }}"
+                 data-name="{{ card.name|lower }}"
+                 data-version="{{ card.get_version_display|lower }}">
+              <div class="card h-100 p-2 text-center" style="cursor:pointer; background:var(--eva-surface-2); border-color:var(--eva-border);"
+                   onclick="selectCardFromPicker('{{ card.pk }}')">
+                <img src="{{ card.image_url }}" referrerpolicy="no-referrer" alt="{{ card.name }}"
+                     class="img-fluid rounded mb-1 mx-auto" style="height:90px; object-fit:contain; background:#090314;">
+                <div class="small fw-semibold text-truncate">{{ card.name }}</div>
+                <div class="d-flex justify-content-center gap-1 mt-1">
+                  <span class="badge bg-secondary" style="font-size:0.65rem;">{{ card.code }}</span>
+                  <span class="badge bg-info text-dark" style="font-size:0.65rem;">{{ card.get_version_display }}</span>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   var totalInput = document.getElementById('id_items-TOTAL_FORMS');
   var currencySelect = document.getElementById('id_currency');
   var shippingCheck = document.getElementById('id_is_shipping');
+  var activeCardTargetSelectId = null;
 
   function syncShipping() {
-    var isShipping = shippingCheck.checked;
-    document.getElementById('fulfillment-label').textContent = isShipping ? 'Fecha de envío' : 'Fecha de retiro';
-    document.getElementById('location-label').textContent = isShipping ? 'Dirección de envío' : 'Lugar';
-    document.getElementById('instructions-label').textContent = isShipping ? 'Instrucciones de envío' : 'Instrucciones de entrega';
+    var isShipping = shippingCheck ? shippingCheck.checked : false;
+    var fLabel = document.getElementById('fulfillment-label');
+    var lLabel = document.getElementById('location-label');
+    var iLabel = document.getElementById('instructions-label');
+    if (fLabel) fLabel.textContent = isShipping ? 'Fecha de envío' : 'Fecha de retiro';
+    if (lLabel) lLabel.textContent = isShipping ? 'Dirección de envío' : 'Lugar';
+    if (iLabel) iLabel.textContent = isShipping ? 'Instrucciones de envío' : 'Instrucciones de entrega';
   }
   if (shippingCheck) {
     shippingCheck.addEventListener('change', syncShipping);
     syncShipping();
   }
 
-  var CARD_IMAGES = {
+  var CARDS_DICT = {
     {% for card in cards %}
-      "{{ card.pk }}": "{{ card.image_url }}",
+      "{{ card.pk }}": {
+        id: "{{ card.pk }}",
+        code: "{{ card.code|escapejs }}",
+        name: "{{ card.name|escapejs }}",
+        version: "{{ card.get_version_display|escapejs }}",
+        img: "{{ card.image_url|escapejs }}"
+      },
     {% endfor %}
   };
+
+  var CONTACTS_DICT = {
+    {% for contact in contacts %}
+      "{{ contact.pk }}": {
+        id: "{{ contact.pk }}",
+        name: "{{ contact.name|escapejs }}",
+        whatsapp: "{{ contact.whatsapp|escapejs }}",
+        instagram: "{{ contact.instagram|escapejs }}"
+      },
+    {% endfor %}
+  };
+
+  // Setup rich TomSelect for Contact select
+  var sellerSelect = document.getElementById('id_seller');
+  if (sellerSelect && !sellerSelect.tomselect) {
+    new TomSelect(sellerSelect, {
+      allowEmptyOption: true,
+      placeholder: '— buscar o seleccionar contacto —',
+      render: {
+        option: function(data, escape) {
+          var c = CONTACTS_DICT[data.value];
+          if (!c) return '<div>' + escape(data.text) + '</div>';
+          var sub = [];
+          if (c.whatsapp) sub.push('<i class="bi bi-whatsapp text-success me-1"></i>' + escape(c.whatsapp));
+          if (c.instagram) sub.push('<i class="bi bi-instagram me-1" style="color:#f43f5e;"></i>' + escape(c.instagram));
+          return '<div class="py-1"><strong class="d-block">' + escape(c.name) + '</strong>' +
+            (sub.length ? '<small class="text-muted">' + sub.join(' &bull; ') + '</small>' : '') + '</div>';
+        }
+      }
+    });
+  }
+
+  function initCardTomSelect(el) {
+    if (el.tomselect) return el.tomselect;
+    return new TomSelect(el, {
+      allowEmptyOption: true,
+      placeholder: '— buscar por código o nombre —',
+      render: {
+        option: function(data, escape) {
+          var c = CARDS_DICT[data.value];
+          if (!c) return '<div>' + escape(data.text) + '</div>';
+          return '<div class="d-flex align-items-center gap-2 py-1">' +
+            '<img src="' + escape(c.img) + '" referrerpolicy="no-referrer" style="width:30px;height:42px;object-fit:cover;border-radius:3px;background:#090314;">' +
+            '<div class="lh-sm"><strong>' + escape(c.code) + '</strong> — ' + escape(c.name) +
+            '<br><small class="text-muted">' + escape(c.version) + '</small></div>' +
+            '</div>';
+        },
+        item: function(data, escape) {
+          var c = CARDS_DICT[data.value];
+          if (!c) return '<div>' + escape(data.text) + '</div>';
+          return '<div><strong>' + escape(c.code) + '</strong> ' + escape(c.name) + ' (' + escape(c.version) + ')</div>';
+        }
+      }
+    });
+  }
 
   function updateCardPreview(row) {
     var select = row.querySelector('select[name$="-card"]');
     var img = row.querySelector('.card-img-preview');
     if (!select || !img) return;
     var cardId = select.value;
-    if (cardId && CARD_IMAGES[cardId]) {
-      img.src = CARD_IMAGES[cardId];
+    if (cardId && CARDS_DICT[cardId]) {
+      img.src = CARDS_DICT[cardId].img;
       img.style.display = 'block';
     } else {
       img.style.display = 'none';
@@ -268,15 +381,15 @@
     syncCurrency();
   }
 
-  // Attach card image listener to a row
   function initRow(row) {
     var select = row.querySelector('select[name$="-card"]');
     if (select) {
-      select.addEventListener('change', function () { updateCardPreview(row); });
+      var ts = initCardTomSelect(select);
+      ts.on('change', function () {
+        updateCardPreview(row);
+        updateTotal();
+      });
       updateCardPreview(row);
-      if (select.tomselect) {
-        select.tomselect.on('change', function () { updateCardPreview(row); });
-      }
     }
   }
 
@@ -290,10 +403,6 @@
     var row = tmp.firstElementChild;
     document.getElementById('formset-container').appendChild(row);
     totalInput.value = idx + 1;
-    row.querySelectorAll('.ts-select').forEach(function (el) {
-      var ts = new TomSelect(el, { allowEmptyOption: true, placeholder: '— seleccionar —' });
-      ts.on('change', function () { updateCardPreview(row); });
-    });
     htmx.process(row);
     initRow(row);
     syncCurrency();
@@ -319,21 +428,63 @@
   }
 
   document.getElementById('formset-container').addEventListener('click', function (e) {
-    var btn = e.target.closest('.remove-item');
-    if (!btn) return;
-    var row = btn.closest('.item-row');
-    var del = row.querySelector('[name$="-DELETE"]');
-    if (del) { del.checked = true; row.style.display = 'none'; }
-    else { row.remove(); }
-    updateTotal();
+    var removeBtn = e.target.closest('.remove-item');
+    if (removeBtn) {
+      var row = removeBtn.closest('.item-row');
+      var del = row.querySelector('[name$="-DELETE"]');
+      if (del) { del.checked = true; row.style.display = 'none'; }
+      else { row.remove(); }
+      updateTotal();
+      return;
+    }
+
+    var pickerBtn = e.target.closest('.card-picker-btn');
+    if (pickerBtn) {
+      activeCardTargetSelectId = pickerBtn.dataset.target;
+      var modal = new bootstrap.Modal(document.getElementById('cardPickerModal'));
+      modal.show();
+      setTimeout(function() {
+        var inp = document.getElementById('card-picker-search');
+        if (inp) { inp.value = ''; inp.focus(); filterPickerGrid(''); }
+      }, 300);
+    }
   });
+
+  // Card Picker Grid Filter
+  var pickerSearch = document.getElementById('card-picker-search');
+  if (pickerSearch) {
+    pickerSearch.addEventListener('input', function() {
+      filterPickerGrid(pickerSearch.value.trim().toLowerCase());
+    });
+  }
+
+  function filterPickerGrid(q) {
+    document.querySelectorAll('.card-picker-item').forEach(function(item) {
+      if (!q) { item.style.display = ''; return; }
+      var match = (item.dataset.code || '').includes(q) ||
+                  (item.dataset.name || '').includes(q) ||
+                  (item.dataset.version || '').includes(q);
+      item.style.display = match ? '' : 'none';
+    });
+  }
+
+  window.selectCardFromPicker = function(cardId) {
+    if (!activeCardTargetSelectId) return;
+    var selectEl = document.getElementById(activeCardTargetSelectId);
+    if (selectEl && selectEl.tomselect) {
+      selectEl.tomselect.setValue(cardId);
+      var row = selectEl.closest('.item-row');
+      if (row) updateCardPreview(row);
+      updateTotal();
+    }
+    bootstrap.Modal.getInstance(document.getElementById('cardPickerModal'))?.hide();
+  };
 
   // Listen for newly created cards via HTMX modal
   document.body.addEventListener('entityCreated', function (e) {
     var { id, name, selectId } = e.detail;
     var select = document.getElementById(selectId);
-    if (select && select.name.endsWith('-card')) {
-      // Fetch card image URL or add to dictionary if available
+    if (select && select.name && select.name.endsWith('-card')) {
       var row = select.closest('.item-row');
       if (row) updateCardPreview(row);
     }

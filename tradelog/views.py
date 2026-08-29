@@ -48,40 +48,71 @@ def dashboard(request):
         .prefetch_related('items__card')
     )
 
-    map_points = []
+    # Build unified agenda items list with rich sorting metadata
+    agenda_items = []
     for p in day_purchases:
-        if p.location:
-            map_points.append({
-                'kind': 'purchase',
-                'id': p.pk,
-                'label': f"Compra #{p.pk} — {p.seller or 'Sin vendedor'}",
-                'location_name': p.location.name,
-                'address': p.location.address,
-                'time_from': p.time_from.strftime('%H:%M') if p.time_from else None,
-                'time_to': p.time_to.strftime('%H:%M') if p.time_to else None,
-                'completed': p.is_completed,
-                'is_shipping': p.is_shipping,
-                'url': f"/purchases/{p.pk}/",
-            })
+        agenda_items.append({
+            'kind': 'purchase',
+            'pk': p.pk,
+            'party': p.seller.name if p.seller else 'Sin vendedor',
+            'location': p.location,
+            'time_from': p.time_from,
+            'time_to': p.time_to,
+            'time_str': p.time_from.strftime('%H:%M') if p.time_from else '99:99',
+            'is_completed': p.is_completed,
+            'is_shipping': p.is_shipping,
+            'items_count': sum(i.quantity for i in p.items.all()),
+            'total': p.formatted_total(),
+            'currency': p.currency,
+            'detail_url': f"/purchases/{p.pk}/",
+            'toggle_url': f"/purchases/{p.pk}/toggle/",
+        })
+
     for s in day_sales:
-        if s.location:
+        agenda_items.append({
+            'kind': 'sale',
+            'pk': s.pk,
+            'party': s.buyer.name if s.buyer else 'Sin comprador',
+            'location': s.location,
+            'time_from': s.time_from,
+            'time_to': s.time_to,
+            'time_str': s.time_from.strftime('%H:%M') if s.time_from else '99:99',
+            'is_completed': s.is_completed,
+            'is_shipping': s.is_shipping,
+            'items_count': sum(i.quantity for i in s.items.all()),
+            'total': s.formatted_total(),
+            'currency': s.currency,
+            'detail_url': f"/sales/{s.pk}/",
+            'toggle_url': f"/sales/{s.pk}/toggle/",
+        })
+
+    # Default sort: by time_from ascending (empty time goes to bottom)
+    agenda_items.sort(key=lambda x: (x['time_str'], x['party'].lower()))
+
+    map_points = []
+    for item in agenda_items:
+        if item['location']:
+            loc = item['location']
             map_points.append({
-                'kind': 'sale',
-                'id': s.pk,
-                'label': f"Venta #{s.pk} — {s.buyer or 'Sin comprador'}",
-                'location_name': s.location.name,
-                'address': s.location.address,
-                'time_from': s.time_from.strftime('%H:%M') if s.time_from else None,
-                'time_to': s.time_to.strftime('%H:%M') if s.time_to else None,
-                'completed': s.is_completed,
-                'is_shipping': s.is_shipping,
-                'url': f"/sales/{s.pk}/",
+                'kind': item['kind'],
+                'id': item['pk'],
+                'label': f"{'Compra' if item['kind'] == 'purchase' else 'Venta'} #{item['pk']} — {item['party']}",
+                'location_name': loc.name,
+                'address': loc.address,
+                'lat': loc.latitude,
+                'lon': loc.longitude,
+                'time_from': item['time_from'].strftime('%H:%M') if item['time_from'] else None,
+                'time_to': item['time_to'].strftime('%H:%M') if item['time_to'] else None,
+                'completed': item['is_completed'],
+                'is_shipping': item['is_shipping'],
+                'url': item['detail_url'],
             })
 
     context = {
         'recent_purchases': Purchase.objects.filter(owner=request.user).select_related('seller', 'location').prefetch_related('items')[:10],
         'recent_sales': Sale.objects.filter(owner=request.user).select_related('buyer', 'location').prefetch_related('items')[:10],
         'selected_date': selected_date,
+        'agenda_items': agenda_items,
         'day_purchases': day_purchases,
         'day_sales': day_sales,
         'map_points': json.dumps(map_points),
