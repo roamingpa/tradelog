@@ -7,4 +7,5 @@ services:
       - .env
     volumes:
       - ./db.sqlite3:/app/db.sqlite3
+      - ./media:/app/media
     restart: unless-stopped

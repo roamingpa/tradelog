@@ -1,0 +1,46 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
+            APP_DIR="$HOME/tradelog"
+
+            if [ ! -d "$APP_DIR" ]; then
+              echo "Cloning repository..."
+              git clone https://github.com/roamingpa/tradelog.git "$APP_DIR"
+            fi
+
+            cd "$APP_DIR"
+            echo "Fetching latest code from main..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            if [ ! -f .env ]; then
+              echo "Creating initial .env..."
+              cp .env.example .env
+              sed -i "s/your-secret-key-here/$(openssl rand -hex 32)/" .env
+              sed -i "s/ALLOWED_HOSTS=localhost,127.0.0.1/ALLOWED_HOSTS=*/" .env
+            fi
+
+            echo "Rebuilding and starting containers..."
+            docker compose down
+            docker compose up -d --build --remove-orphans
+
+            echo "Applying database migrations..."
+            docker compose exec -T web uv run python manage.py migrate
+
+            echo "Deployment finished successfully!"
