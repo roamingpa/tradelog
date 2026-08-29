@@ -261,7 +261,7 @@
 </div>
 
 <script>
-(function () {
+document.addEventListener('DOMContentLoaded', function () {
   var totalInput = document.getElementById('id_items-TOTAL_FORMS');
   var currencySelect = document.getElementById('id_currency');
   var shippingCheck = document.getElementById('id_is_shipping');
@@ -489,6 +489,6 @@
       if (row) updateCardPreview(row);
     }
   });
-}());
+});
 </script>
 {% endblock %}
