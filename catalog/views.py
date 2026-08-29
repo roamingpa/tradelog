@@ -8,8 +8,57 @@ from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
 
+from django.db.models import Q, Sum
+
 from .forms import CardForm
 from .models import Card, IMG_BASE
+
+
+@login_required
+def collection_view(request):
+    from transactions.models import PurchaseItem
+    search_query = request.GET.get('q', '').strip()
+    version_filter = request.GET.get('version', '').strip()
+
+    items = (
+        PurchaseItem.objects.filter(purchase__owner=request.user)
+        .values('card__id', 'card__code', 'card__name', 'card__version', 'card__image_suffix')
+        .annotate(total_quantity=Sum('quantity'))
+        .order_by('card__code', 'card__version')
+    )
+
+    if search_query:
+        items = items.filter(
+            Q(card__code__icontains=search_query) | Q(card__name__icontains=search_query)
+        )
+    if version_filter:
+        items = items.filter(card__version=version_filter)
+
+    version_dict = dict(Card.Version.choices)
+    cards_data = []
+    for item in items:
+        cards_data.append({
+            'id': item['card__id'],
+            'code': item['card__code'],
+            'name': item['card__name'],
+            'version': item['card__version'],
+            'version_display': version_dict.get(item['card__version'], item['card__version']),
+            'total_quantity': item['total_quantity'],
+            'image_url': f"/catalog/cards/{item['card__id']}/image/",
+        })
+
+    total_cards_count = sum(i['total_quantity'] for i in cards_data)
+    unique_cards_count = len(cards_data)
+
+    context = {
+        'cards_data': cards_data,
+        'search_query': search_query,
+        'version_filter': version_filter,
+        'versions': Card.Version.choices,
+        'total_cards_count': total_cards_count,
+        'unique_cards_count': unique_cards_count,
+    }
+    return render(request, 'catalog/collection.html', context)
 
 
 @login_required

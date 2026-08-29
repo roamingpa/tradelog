@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Mi Colección — Tradelog{% endblock %}
+
+{% block content %}
+<style>
+  .collection-card {
+    background: var(--eva-surface);
+    border: 1px solid var(--eva-border);
+    border-radius: .5rem;
+    overflow: hidden;
+    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  .collection-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px var(--eva-purple-glow);
+    border-color: var(--eva-purple);
+  }
+  .card-img-wrapper {
+    position: relative;
+    width: 100%;
+    padding-top: 138%; /* Card aspect ratio ~ 1:1.4 */
+    background: #090314;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .card-img-wrapper img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .card-badge-top {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 2;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.7);
+    font-size: 0.7rem;
+    letter-spacing: 0.03em;
+  }
+  .card-badge-qty {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    z-index: 2;
+    font-size: 0.85rem;
+    font-weight: 800;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.8);
+    background: var(--eva-green);
+    color: #041505;
+  }
+</style>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+  <div>
+    <h1 class="h3 mb-1"><i class="bi bi-collection-fill me-2" style="color:var(--eva-green);"></i>Mi Colección</h1>
+    <p class="text-muted mb-0 small">Resumen acumulado de todas tus compras de cartas</p>
+  </div>
+  <div class="d-flex gap-2 align-items-center">
+    <span class="badge bg-secondary p-2 fs-6">
+      <i class="bi bi-stack me-1"></i> Total cartas: <strong class="text-success">{{ total_cards_count }}</strong>
+    </span>
+    <span class="badge bg-secondary p-2 fs-6">
+      <i class="bi bi-layers me-1"></i> Únicas: <strong style="color:var(--eva-purple-light);">{{ unique_cards_count }}</strong>
+    </span>
+  </div>
+</div>
+
+<!-- Filtros de búsqueda -->
+<div class="card mb-4">
+  <div class="card-body p-3">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-12 col-md-6">
+        <div class="input-group">
+          <span class="input-group-text bg-transparent border-secondary text-muted"><i class="bi bi-search"></i></span>
+          <input type="text" name="q" class="form-control" placeholder="Buscar por código (OP01-001) o nombre…" value="{{ search_query }}">
+        </div>
+      </div>
+      <div class="col-8 col-md-4">
+        <select name="version" class="form-select" onchange="this.form.submit()">
+          <option value="">— Todas las versiones —</option>
+          {% for val, label in versions %}
+            <option value="{{ val }}" {% if version_filter == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-4 col-md-2 d-flex gap-1">
+        <button type="submit" class="btn btn-primary w-100"><i class="bi bi-funnel-fill me-1"></i>Filtrar</button>
+        {% if search_query or version_filter %}
+          <a href="{% url 'collection' %}" class="btn btn-outline-secondary" title="Limpiar filtros"><i class="bi bi-x-lg"></i></a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if cards_data %}
+  <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6 g-3">
+    {% for c in cards_data %}
+      <div class="col">
+        <div class="collection-card">
+          <div class="card-img-wrapper"
+               onclick="openCardModal('{{ c.image_url|escapejs }}', '{{ c.name|escapejs }}', '{{ c.code|escapejs }}')"
+               title="Ver carta {{ c.name }} ({{ c.code }})">
+            
+            <!-- Badge de versión -->
+            <span class="badge {% if c.version == 'ALT_ART' %}bg-warning text-dark{% elif c.version == 'SP' %}bg-danger{% elif c.version == 'FOIL' %}bg-info text-dark{% else %}bg-secondary{% endif %} card-badge-top">
+              {{ c.version_display }}
+            </span>
+
+            <!-- Badge de cantidad total -->
+            <span class="card-badge-qty">
+              ×{{ c.total_quantity }}
+            </span>
+
+            <img src="{{ c.image_url }}" referrerpolicy="no-referrer" alt="{{ c.name }}"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+            <div class="card-fallback flex-column justify-content-center align-items-center text-center small fw-bold"
+                 style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:#1e1138;color:#c084fc;padding:10px;">
+              <i class="bi bi-card-image mb-2 fs-3"></i>
+              <span>{{ c.code }}</span>
+            </div>
+          </div>
+
+          <div class="p-2 d-flex flex-column justify-content-between flex-grow-1">
+            <div class="fw-semibold text-truncate small mb-0" title="{{ c.name }}">{{ c.name }}</div>
+            <small class="text-muted">{{ c.code }}</small>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="alert alert-info py-4 text-center">
+    <i class="bi bi-inbox fs-2 d-block mb-2 text-muted"></i>
+    {% if search_query or version_filter %}
+      No se encontraron cartas que coincidan con la búsqueda.
+    {% else %}
+      Aún no tienes cartas en tu colección. Cuando registres compras de cartas, aparecerán automáticamente aquí.
+    {% endif %}
+  </div>
+{% endif %}
+{% endblock %}

@@ -229,36 +229,105 @@
     maxZoom: 19,
   }).addTo(map);
 
-  var markers = {};
+  // Map setup
+  var points = {{ map_points|safe }};
+  var map = L.map('day-map').setView([-33.4489, -70.6693], 11); // Santiago default
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 19,
+  }).addTo(map);
+
+  var locationGroups = {}; // key -> { latlng, points: [] }
+  var markersByItem = {};  // itemKey -> marker
+  var locationMarkers = {}; // locKey -> { marker, points: [] }
   var bounds = [];
   var geocodeCache = {};
 
-  function iconFor(completed) {
+  function makeIcon(pointsAtLoc) {
+    var total = pointsAtLoc.length;
+    var allCompleted = pointsAtLoc.every(function(p) { return p.completed; });
+    var color = allCompleted ? '#22c55e' : '#9333ea';
+    var border = allCompleted ? '#14532d' : '#581c87';
+    var badgeText = total > 1 ? '<span style="position:absolute;top:-6px;right:-8px;background:#f59e0b;color:#000;font-size:10px;font-weight:900;border-radius:10px;padding:0 4px;border:1px solid #000;line-height:14px;">' + total + '</span>' : '';
+
     return L.divIcon({
       className: '',
-      html: '<div style="width:16px;height:16px;border-radius:50%;background:' +
-        (completed ? '#22c55e' : '#9333ea') +
-        ';border:2px solid #fff;box-shadow:0 0 6px rgba(0,0,0,.6);"></div>',
-      iconSize: [16, 16],
+      html: '<div style="position:relative;width:20px;height:20px;border-radius:50%;background:' + color + ';border:3px solid #fff;box-shadow:0 0 8px rgba(0,0,0,0.8);">' + badgeText + '</div>',
+      iconSize: [20, 20],
+      iconAnchor: [10, 10],
+      popupAnchor: [0, -10]
     });
+  }
+
+  function buildPopupContent(pointsAtLoc, locName) {
+    var html = '<div style="min-width:200px;">';
+    html += '<h6 style="color:#22c55e;margin-bottom:6px;font-size:0.9rem;border-bottom:1px solid #581c87;padding-bottom:4px;"><i class="bi bi-geo-alt-fill me-1"></i>' + (locName || 'Lugar de encuentro') + '</h6>';
+    html += '<div style="display:flex;flex-direction:column;gap:8px;">';
+    pointsAtLoc.forEach(function(p) {
+      var timeStr = p.time_from ? (p.time_from + (p.time_to ? '–' + p.time_to : '')) : '';
+      var statusBadge = p.completed
+        ? '<span style="background:#14532d;color:#86efac;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600;">Completado</span>'
+        : '<span style="background:#450a0a;color:#fca5a5;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600;">Pendiente</span>';
+      var kindBadge = p.kind === 'purchase'
+        ? '<span style="background:#2b1754;color:#c084fc;font-size:0.65rem;padding:1px 5px;border-radius:4px;margin-right:3px;">Compra</span>'
+        : '<span style="background:#1e1138;color:#4ade80;font-size:0.65rem;padding:1px 5px;border-radius:4px;margin-right:3px;">Venta</span>';
+
+      html += '<div style="background:#110020;padding:6px 8px;border-radius:4px;border:1px solid #32155a;">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">';
+      html += '<div>' + kindBadge + statusBadge + '</div>';
+      if (timeStr) html += '<small style="color:#c4b5fd;font-size:0.75rem;"><i class="bi bi-clock me-1"></i>' + timeStr + '</small>';
+      html += '</div>';
+      html += '<div style="font-weight:600;font-size:0.85rem;margin:2px 0;">' + p.label + '</div>';
+      html += '<a href="' + p.url + '" style="font-size:0.75rem;color:#22c55e;text-decoration:underline;">Ver detalle completo &rarr;</a>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+    return html;
   }
 
   function updateMarkerStyle(rowId, completed) {
     var parts = rowId.split('-');
     var kind = parts[0], id = parts[2];
-    var key = kind + '-' + id;
-    if (markers[key]) markers[key].setIcon(iconFor(completed));
+    var itemKey = kind + '-' + id;
+
+    // Find and update the point inside points
+    points.forEach(function(p) {
+      if (p.kind === kind && String(p.id) === String(id)) {
+        p.completed = completed;
+      }
+    });
+
+    // Re-render the marker icon and popup for this location group
+    var locKey = markersByItem[itemKey];
+    if (locKey && locationMarkers[locKey]) {
+      var group = locationMarkers[locKey];
+      group.marker.setIcon(makeIcon(group.points));
+      group.marker.setPopupContent(buildPopupContent(group.points, group.locName));
+    }
   }
 
   function geocodeAndPlace(point) {
     var query = point.address || point.location_name;
     if (!query) return;
-    if (geocodeCache[query]) {
-      placeMarker(point, geocodeCache[query]);
+
+    var locKey = (point.location_name + '||' + (point.address || '')).toLowerCase();
+
+    if (locationMarkers[locKey]) {
+      // Already geocoded and marker exists! Add point to this marker group
+      locationMarkers[locKey].points.push(point);
+      markersByItem[point.kind + '-' + point.id] = locKey;
+      locationMarkers[locKey].marker.setIcon(makeIcon(locationMarkers[locKey].points));
+      locationMarkers[locKey].marker.setPopupContent(
+        buildPopupContent(locationMarkers[locKey].points, point.location_name)
+      );
       return;
     }
-    // Bias results towards Chile so ambiguous place names (e.g. "Metro San Miguel")
-    // don't resolve to a same-named place in another country.
+
+    if (geocodeCache[query]) {
+      createGroupMarker(locKey, point, geocodeCache[query]);
+      return;
+    }
+
     var biasedQuery = /chile/i.test(query) ? query : query + ', Chile';
     var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(biasedQuery) +
       '&format=json&limit=1&countrycodes=cl';
@@ -268,7 +337,7 @@
         if (data.length) {
           var latlng = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
           geocodeCache[query] = latlng;
-          placeMarker(point, latlng);
+          createGroupMarker(locKey, point, latlng);
         } else {
           console.warn('Sin resultados de geocodificación para:', query);
         }
@@ -278,22 +347,34 @@
       });
   }
 
-  function placeMarker(point, latlng) {
-    var marker = L.marker(latlng, { icon: iconFor(point.completed) }).addTo(map);
-    var timeStr = point.time_from ? (point.time_from + (point.time_to ? '–' + point.time_to : '')) : '';
-    marker.bindPopup(
-      '<strong>' + point.label + '</strong><br>' +
-      (timeStr ? timeStr + '<br>' : '') +
-      (point.location_name || '') + '<br>' +
-      '<a href="' + point.url + '">Ver detalle</a>'
-    );
-    markers[point.kind + '-' + point.id] = marker;
+  function createGroupMarker(locKey, initialPoint, latlng) {
+    if (locationMarkers[locKey]) {
+      locationMarkers[locKey].points.push(initialPoint);
+      markersByItem[initialPoint.kind + '-' + initialPoint.id] = locKey;
+      locationMarkers[locKey].marker.setIcon(makeIcon(locationMarkers[locKey].points));
+      locationMarkers[locKey].marker.setPopupContent(
+        buildPopupContent(locationMarkers[locKey].points, initialPoint.location_name)
+      );
+      return;
+    }
+
+    var pointsList = [initialPoint];
+    var marker = L.marker(latlng, { icon: makeIcon(pointsList) }).addTo(map);
+    marker.bindPopup(buildPopupContent(pointsList, initialPoint.location_name));
+
+    locationMarkers[locKey] = {
+      marker: marker,
+      points: pointsList,
+      locName: initialPoint.location_name,
+      latlng: latlng
+    };
+    markersByItem[initialPoint.kind + '-' + initialPoint.id] = locKey;
     bounds.push(latlng);
-    if (bounds.length) map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
+    if (bounds.length) map.fitBounds(bounds, { padding: [35, 35], maxZoom: 15 });
   }
 
   points.forEach(function (p, idx) {
-    setTimeout(function () { geocodeAndPlace(p); }, idx * 600); // stagger to respect Nominatim rate limit
+    setTimeout(function () { geocodeAndPlace(p); }, idx * 400);
   });
 }());
 </script>

@@ -78,24 +78,78 @@ class SaleForm(forms.ModelForm):
             self.fields['location'].queryset = self.fields['location'].queryset.filter(owner=user)
 
 
-_ITEM_WIDGETS = {
-    'card': forms.Select(attrs={'class': 'form-select ts-select'}),
-    'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
-    'unit_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
-}
+class PurchaseItemForm(forms.ModelForm):
+    unit_price = forms.DecimalField(
+        required=False,
+        initial=0,
+        min_value=0,
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'placeholder': '0'}),
+    )
+    quantity = forms.IntegerField(
+        required=False,
+        initial=1,
+        min_value=1,
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'placeholder': '1'}),
+    )
+
+    class Meta:
+        model = PurchaseItem
+        fields = ['card', 'quantity', 'unit_price', 'is_found']
+        widgets = {
+            'card': forms.Select(attrs={'class': 'form-select ts-select'}),
+            'is_found': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def clean_unit_price(self):
+        val = self.cleaned_data.get('unit_price')
+        return 0 if val is None or val == '' else val
+
+    def clean_quantity(self):
+        val = self.cleaned_data.get('quantity')
+        return 1 if val is None or val == '' else val
+
+
+class SaleItemForm(forms.ModelForm):
+    unit_price = forms.DecimalField(
+        required=False,
+        initial=0,
+        min_value=0,
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'placeholder': '0'}),
+    )
+    quantity = forms.IntegerField(
+        required=False,
+        initial=1,
+        min_value=1,
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'placeholder': '1'}),
+    )
+
+    class Meta:
+        model = SaleItem
+        fields = ['card', 'quantity', 'unit_price', 'is_found']
+        widgets = {
+            'card': forms.Select(attrs={'class': 'form-select ts-select'}),
+            'is_found': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def clean_unit_price(self):
+        val = self.cleaned_data.get('unit_price')
+        return 0 if val is None or val == '' else val
+
+    def clean_quantity(self):
+        val = self.cleaned_data.get('quantity')
+        return 1 if val is None or val == '' else val
+
 
 PurchaseItemFormSet = inlineformset_factory(
     Purchase, PurchaseItem,
-    fields=['card', 'quantity', 'unit_price'],
+    form=PurchaseItemForm,
     extra=1,
     can_delete=True,
-    widgets=_ITEM_WIDGETS,
 )
 
 SaleItemFormSet = inlineformset_factory(
     Sale, SaleItem,
-    fields=['card', 'quantity', 'unit_price'],
+    form=SaleItemForm,
     extra=1,
     can_delete=True,
-    widgets=_ITEM_WIDGETS,
 )

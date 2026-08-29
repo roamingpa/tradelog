@@ -53,7 +53,8 @@ class PurchaseItem(models.Model):
     purchase = models.ForeignKey(Purchase, on_delete=models.CASCADE, related_name='items')
     card = models.ForeignKey(Card, on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField(default=1)
-    unit_price = models.DecimalField(max_digits=12, decimal_places=2)
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    is_found = models.BooleanField(default=False, help_text='Marca si la carta ya fue encontrada/revisada')
 
     def subtotal(self):
         return self.quantity * self.unit_price
@@ -103,7 +104,8 @@ class SaleItem(models.Model):
     sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name='items')
     card = models.ForeignKey(Card, on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField(default=1)
-    unit_price = models.DecimalField(max_digits=12, decimal_places=2)
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    is_found = models.BooleanField(default=False, help_text='Marca si la carta ya fue encontrada/revisada')
 
     def subtotal(self):
         return self.quantity * self.unit_price

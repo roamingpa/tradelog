@@ -18,12 +18,14 @@ from django.contrib import admin
 from django.contrib.auth.views import LoginView
 from django.urls import include, path
 
+from catalog.views import collection_view
 from tradelog.forms import StyledAuthenticationForm
 from tradelog.views import dashboard, landing, signup
 
 urlpatterns = [
     path('', landing, name='landing'),
     path('dashboard/', dashboard, name='dashboard'),
+    path('collection/', collection_view, name='collection'),
     path('accounts/signup/', signup, name='signup'),
     path('accounts/login/', LoginView.as_view(authentication_form=StyledAuthenticationForm), name='login'),
     path('accounts/', include('django.contrib.auth.urls')),

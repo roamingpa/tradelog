@@ -10,7 +10,7 @@ from django.views.generic import DetailView, ListView
 
 from catalog.models import Card
 from transactions.forms import PurchaseForm, PurchaseItemFormSet, SaleForm, SaleItemFormSet
-from transactions.models import Purchase, Sale
+from transactions.models import Purchase, PurchaseItem, Sale, SaleItem
 
 
 class PurchaseListView(LoginRequiredMixin, ListView):
@@ -114,3 +114,21 @@ def sale_toggle_completed(request, pk):
     sale.is_completed = not sale.is_completed
     sale.save(update_fields=['is_completed'])
     return JsonResponse({'is_completed': sale.is_completed})
+
+
+@require_POST
+@login_required
+def purchase_item_toggle_found(request, pk):
+    item = get_object_or_404(PurchaseItem, pk=pk, purchase__owner=request.user)
+    item.is_found = not item.is_found
+    item.save(update_fields=['is_found'])
+    return JsonResponse({'is_found': item.is_found})
+
+
+@require_POST
+@login_required
+def sale_item_toggle_found(request, pk):
+    item = get_object_or_404(SaleItem, pk=pk, sale__owner=request.user)
+    item.is_found = not item.is_found
+    item.save(update_fields=['is_found'])
+    return JsonResponse({'is_found': item.is_found})

@@ -10,8 +10,28 @@
   {% csrf_token %}
   {{ formset.management_form }}
 
-  {% if form.non_field_errors %}
-    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+  {% if form.errors or formset.errors or formset.non_form_errors %}
+    <div class="alert alert-danger py-2 mb-3">
+      <strong><i class="bi bi-exclamation-triangle-fill me-1"></i> Por favor revisa los errores en el formulario:</strong>
+      <ul class="mb-0 small mt-1">
+        {% for field in form %}
+          {% for error in field.errors %}
+            <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+          {% endfor %}
+        {% endfor %}
+        {% for error in form.non_field_errors %}
+          <li>{{ error }}</li>
+        {% endfor %}
+        {% for error in formset.non_form_errors %}
+          <li>{{ error }}</li>
+        {% endfor %}
+        {% for f in formset %}
+          {% for error in f.non_field_errors %}
+            <li><strong>Carta #{{ forloop.counter }}:</strong> {{ error }}</li>
+          {% endfor %}
+        {% endfor %}
+      </ul>
+    </div>
   {% endif %}
 
   <div class="card mb-3">
@@ -110,13 +130,21 @@
               </div>
               {% if f.card.errors %}<div class="text-danger small">{{ f.card.errors|join:", " }}</div>{% endif %}
             </div>
-            <div class="col-5">
+            <div class="col-4">
               <label class="form-label small mb-1">Cantidad</label>
               {{ f.quantity }}
+              {% if f.quantity.errors %}<div class="text-danger small">{{ f.quantity.errors|join:", " }}</div>{% endif %}
             </div>
-            <div class="col-5">
+            <div class="col-4">
               <label class="form-label small mb-1">Precio (<span class="currency-symbol">CLP</span>)</label>
               {{ f.unit_price }}
+              {% if f.unit_price.errors %}<div class="text-danger small">{{ f.unit_price.errors|join:", " }}</div>{% endif %}
+            </div>
+            <div class="col-2">
+              <label class="form-label small mb-1 d-block text-truncate" title="Encontrada / Revisada">Revisada</label>
+              <div class="form-check pt-1">
+                {{ f.is_found }}
+              </div>
             </div>
             <div class="col-2 text-end">
               <button type="button" class="btn btn-sm btn-outline-danger remove-item" title="Quitar">
@@ -160,13 +188,19 @@
         </button>
       </div>
     </div>
-    <div class="col-5">
+    <div class="col-4">
       <label class="form-label small mb-1">Cantidad</label>
       {{ formset.empty_form.quantity }}
     </div>
-    <div class="col-5">
+    <div class="col-4">
       <label class="form-label small mb-1">Precio (<span class="currency-symbol">CLP</span>)</label>
       {{ formset.empty_form.unit_price }}
+    </div>
+    <div class="col-2">
+      <label class="form-label small mb-1 d-block text-truncate" title="Encontrada / Revisada">Revisada</label>
+      <div class="form-check pt-1">
+        {{ formset.empty_form.is_found }}
+      </div>
     </div>
     <div class="col-2 text-end">
       <button type="button" class="btn btn-sm btn-outline-danger remove-item" title="Quitar">

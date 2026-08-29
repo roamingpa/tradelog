@@ -29,12 +29,6 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            # Clean up legacy db.sqlite3 directory if created by previous docker mount
-            if [ -d "$APP_DIR/db.sqlite3" ]; then
-              echo "Removing invalid db.sqlite3 directory..."
-              sudo rm -rf "$APP_DIR/db.sqlite3"
-            fi
-
             mkdir -p "$APP_DIR/data" "$APP_DIR/media"
 
             if [ ! -f .env ]; then
@@ -44,8 +38,7 @@ jobs:
               sed -i "s/ALLOWED_HOSTS=localhost,127.0.0.1/ALLOWED_HOSTS=*/" .env
             fi
 
-            echo "Rebuilding and starting containers..."
-            docker compose down
+            echo "Rebuilding and starting containers (data and media volumes are preserved)..."
             docker compose up -d --build --remove-orphans
 
             echo "Applying database migrations..."
