@@ -20,6 +20,6 @@ class CardForm(forms.ModelForm):
             'code': forms.TextInput(attrs={**_C, 'autofocus': True, 'placeholder': 'OP01-001'}),
             'name': forms.TextInput(attrs=_C),
             'version': forms.Select(attrs={'class': 'form-select'}),
-            'image_suffix': forms.TextInput(attrs={**_C, 'placeholder': 'vacío=normal, _p1, _p2…'}),
+            'image_suffix': forms.HiddenInput(),
             'notes': forms.Textarea(attrs={**_C, 'rows': '2'}),
         }

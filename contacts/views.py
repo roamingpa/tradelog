@@ -12,6 +12,7 @@ from .forms import ContactForm
 @require_http_methods(['GET', 'POST'])
 def contact_new(request):
     select_id = request.GET.get('select', request.POST.get('select_id', ''))
+    initial = {'name': request.GET.get('name', '').strip()}
     if request.method == 'POST':
         form = ContactForm(request.POST)
         if form.is_valid():
@@ -24,4 +25,4 @@ def contact_new(request):
             )
             return response
         return render(request, 'contacts/_form_partial.html', {'form': form, 'select_id': select_id})
-    return render(request, 'contacts/_form_partial.html', {'form': ContactForm(), 'select_id': select_id})
+    return render(request, 'contacts/_form_partial.html', {'form': ContactForm(initial=initial), 'select_id': select_id})

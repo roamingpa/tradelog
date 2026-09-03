@@ -65,6 +65,7 @@ def collection_view(request):
 @require_http_methods(['GET', 'POST'])
 def card_new(request):
     select_id = request.GET.get('select', request.POST.get('select_id', ''))
+    initial = {'code': request.GET.get('code', '').strip()}
     if request.method == 'POST':
         form = CardForm(request.POST)
         if form.is_valid():
@@ -74,8 +75,8 @@ def card_new(request):
                 {'entityCreated': {'id': str(card.id), 'name': str(card), 'selectId': select_id}}
             )
             return response
-        return render(request, 'catalog/_form_partial.html', {'form': form, 'select_id': select_id})
-    return render(request, 'catalog/_form_partial.html', {'form': CardForm(), 'select_id': select_id})
+        return render(request, 'catalog/_form_partial.html', {'form': form, 'select_id': select_id, 'img_base': IMG_BASE})
+    return render(request, 'catalog/_form_partial.html', {'form': CardForm(initial=initial), 'select_id': select_id, 'img_base': IMG_BASE})
 
 
 @login_required

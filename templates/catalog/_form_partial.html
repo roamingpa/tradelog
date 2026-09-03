@@ -4,14 +4,104 @@
   {% csrf_token %}
   <input type="hidden" name="select_id" value="{{ select_id }}">
   {% for field in form %}
-    <div class="mb-3">
+    <div class="mb-3{% if field.is_hidden %} d-none{% endif %}">
       <label class="form-label">{{ field.label }}</label>
       {{ field }}
       {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
       {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>{% endif %}
     </div>
   {% endfor %}
+  <div class="mb-3" id="card-image-chooser" data-img-base="{{ img_base }}">
+    <label class="form-label">Imagen</label>
+    <div class="row row-cols-3 g-2" id="card-image-options">
+      <div class="col text-muted small">Ingresa un código para buscar artes disponibles.</div>
+    </div>
+  </div>
   <div class="d-grid">
     <button type="submit" class="btn btn-primary">Crear carta</button>
   </div>
 </form>
+
+<script>
+(function () {
+  var chooser = document.getElementById('card-image-chooser');
+  var codeInput = document.getElementById('id_code');
+  var suffixInput = document.getElementById('id_image_suffix');
+  var optionsEl = document.getElementById('card-image-options');
+  if (!chooser || !codeInput || !suffixInput || !optionsEl) return;
+
+  var suffixes = ['', '_p1', '_p2', '_p3', '_p4', '_p5', '_p6', '_p7', '_p8', '_p9'];
+  var requestId = 0;
+
+  function normalizeCode(value) {
+    var compact = (value || '').toUpperCase().replace(/\s+/g, '').replace('_', '-');
+    var match = compact.match(/^(OP|ST|EB|PRB)(\d{1,2})-?(\d{3})$/);
+    if (match) return match[1] + String(parseInt(match[2], 10)).padStart(2, '0') + '-' + match[3];
+    match = compact.match(/^P-?(\d{3})$/);
+    if (match) return 'P-' + match[1];
+    return compact;
+  }
+
+  function renderLoading() {
+    optionsEl.innerHTML = '<div class="col text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>Buscando imágenes...</div>';
+  }
+
+  function renderOption(code, suffix, url, firstAvailable) {
+    var col = document.createElement('div');
+    col.className = 'col';
+    var selected = suffixInput.value === suffix || (!suffixInput.value && firstAvailable);
+    if (selected) suffixInput.value = suffix;
+    col.innerHTML = '<button type="button" class="btn w-100 p-1 ' + (selected ? 'btn-success' : 'btn-outline-secondary') + ' card-image-option" data-suffix="' + suffix + '">' +
+      '<img src="' + url + '" referrerpolicy="no-referrer" alt="' + code + suffix + '" class="img-fluid rounded mb-1" style="height:115px;object-fit:contain;background:#090314;">' +
+      '<span class="d-block small">' + (suffix || 'Normal') + '</span>' +
+      '</button>';
+    optionsEl.appendChild(col);
+  }
+
+  function probeImages() {
+    var code = normalizeCode(codeInput.value);
+    requestId += 1;
+    var currentRequest = requestId;
+    optionsEl.innerHTML = '';
+    if (!code) {
+      optionsEl.innerHTML = '<div class="col text-muted small">Ingresa un código para buscar artes disponibles.</div>';
+      return;
+    }
+    renderLoading();
+    var found = 0;
+    var remaining = suffixes.length;
+    suffixes.forEach(function (suffix) {
+      var url = chooser.dataset.imgBase + code + suffix + '.png';
+      var image = new Image();
+      image.onload = function () {
+        if (currentRequest !== requestId) return;
+        if (found === 0) optionsEl.innerHTML = '';
+        found += 1;
+        renderOption(code, suffix, url, found === 1);
+      };
+      image.onerror = function () {
+        remaining -= 1;
+        if (currentRequest === requestId && remaining === 0 && found === 0) {
+          optionsEl.innerHTML = '<div class="col text-warning small">No se encontraron imágenes para este código.</div>';
+        }
+      };
+      image.src = url;
+    });
+  }
+
+  optionsEl.addEventListener('click', function (event) {
+    var button = event.target.closest('.card-image-option');
+    if (!button) return;
+    suffixInput.value = button.dataset.suffix;
+    optionsEl.querySelectorAll('.card-image-option').forEach(function (option) {
+      option.classList.remove('btn-success');
+      option.classList.add('btn-outline-secondary');
+    });
+    button.classList.remove('btn-outline-secondary');
+    button.classList.add('btn-success');
+  });
+
+  codeInput.addEventListener('input', function () { setTimeout(probeImages, 150); });
+  probeImages();
+})();
+</script>

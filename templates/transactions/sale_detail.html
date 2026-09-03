@@ -121,7 +121,13 @@
   <!-- Cartas -->
   <div class="col-12">
     <div class="card">
-      <div class="card-header fw-semibold">Cartas</div>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">Cartas</span>
+        <button type="button" class="btn btn-sm btn-outline-success btn-mark-all-found"
+                data-url="{% url 'sale-items-mark-all-found' sale.pk %}">
+          <i class="bi bi-check2-all me-1"></i>Marcar todas revisadas
+        </button>
+      </div>
       <div class="table-responsive">
         <table class="table align-middle mb-0">
           <thead class="table-light">
@@ -210,12 +216,18 @@ document.querySelectorAll('.btn-found-toggle').forEach(function(btn) {
     });
   });
 });
-</script>
-          </tfoot>
-        </table>
-      </div>
-    </div>
-  </div>
 
-</div>
+document.querySelectorAll('.btn-mark-all-found').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    fetch(btn.dataset.url, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ('; ' + document.cookie).split('; csrftoken=').pop().split(';').shift()
+      }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function() { window.location.reload(); });
+  });
+});
+</script>
 {% endblock %}

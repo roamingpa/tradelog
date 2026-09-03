@@ -10,6 +10,36 @@
   </a>
 </div>
 
+<form method="get" class="card mb-3">
+  <div class="card-body">
+    <div class="row g-2 align-items-end">
+      <div class="col-12 col-lg-5">
+        <label class="form-label" for="purchase-search">Buscar</label>
+        <input type="search" id="purchase-search" name="q" value="{{ filters.q }}" class="form-control" placeholder="Contacto, lugar o carta">
+      </div>
+      <div class="col-6 col-lg-3">
+        <label class="form-label" for="purchase-status">Estado</label>
+        <select id="purchase-status" name="status" class="form-select">
+          <option value="">Todos</option>
+          <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>Pendientes</option>
+          <option value="completed" {% if filters.status == 'completed' %}selected{% endif %}>Completadas</option>
+        </select>
+      </div>
+      <div class="col-6 col-lg-2">
+        <label class="form-label" for="purchase-method">Método</label>
+        <select id="purchase-method" name="method" class="form-select">
+          <option value="">Todos</option>
+          <option value="pickup" {% if filters.method == 'pickup' %}selected{% endif %}>Retiro</option>
+          <option value="shipping" {% if filters.method == 'shipping' %}selected{% endif %}>Envío</option>
+        </select>
+      </div>
+      <div class="col-12 col-lg-2 d-grid">
+        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-funnel me-1"></i>Filtrar</button>
+      </div>
+    </div>
+  </div>
+</form>
+
 {% if purchases %}
   <div class="table-responsive">
     <table class="table table-striped table-hover align-middle">
@@ -68,18 +98,24 @@
     </table>
   </div>
 {% else %}
-  <div class="alert alert-info">No hay compras registradas aún.</div>
+  <div class="alert alert-info d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
+    <span>{% if filters.q or filters.status or filters.method %}No hay compras para estos filtros.{% else %}No hay compras registradas aún.{% endif %}</span>
+    <div class="d-flex gap-2">
+      {% if filters.q or filters.status or filters.method %}<a href="{% url 'purchase-list' %}" class="btn btn-sm btn-outline-secondary">Limpiar</a>{% endif %}
+      <a href="{% url 'purchase-new' %}" class="btn btn-sm btn-primary"><i class="bi bi-whatsapp me-1"></i>Nueva / importar</a>
+    </div>
+  </div>
 {% endif %}
 
 {% if is_paginated %}
 <nav class="mt-3">
   <ul class="pagination justify-content-center">
     {% if page_obj.has_previous %}
-      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">«</a></li>
+      <li class="page-item"><a class="page-link" href="?{% if filter_querystring %}{{ filter_querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">«</a></li>
     {% endif %}
     <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
     {% if page_obj.has_next %}
-      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">»</a></li>
+      <li class="page-item"><a class="page-link" href="?{% if filter_querystring %}{{ filter_querystring }}&{% endif %}page={{ page_obj.next_page_number }}">»</a></li>
     {% endif %}
   </ul>
 </nav>

@@ -1,0 +1,247 @@
+<div class="card mb-3" id="whatsapp-import-card"
+  data-contact-field="{{ contact_field_id }}"
+  data-contact-new-url="{% url 'contact-new' %}"
+  data-card-new-url="{% url 'card-new' %}">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span class="fw-semibold"><i class="bi bi-whatsapp text-success me-1"></i>Importar desde WhatsApp</span>
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#whatsapp-import-body">
+      Pegar chat
+    </button>
+  </div>
+  <div class="collapse" id="whatsapp-import-body">
+    <div class="card-body">
+      <label class="form-label" for="whatsapp-import-text">Conversación</label>
+      <textarea id="whatsapp-import-text" class="form-control" rows="6"
+                data-endpoint="{% url 'whatsapp-import-preview' import_kind %}"
+                placeholder="Pega aquí la conversación exportada o copiada desde WhatsApp"></textarea>
+      <div class="d-flex gap-2 mt-3">
+        <button type="button" class="btn btn-outline-success" id="whatsapp-import-analyze">
+          <i class="bi bi-magic me-1"></i>Analizar
+        </button>
+        <button type="button" class="btn btn-outline-secondary" id="whatsapp-import-clear">
+          <i class="bi bi-x-lg me-1"></i>Limpiar
+        </button>
+      </div>
+      <div class="small mt-3" id="whatsapp-import-status"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var importCard = document.getElementById('whatsapp-import-card');
+  var textArea = document.getElementById('whatsapp-import-text');
+  var analyzeBtn = document.getElementById('whatsapp-import-analyze');
+  var clearBtn = document.getElementById('whatsapp-import-clear');
+  var status = document.getElementById('whatsapp-import-status');
+  if (!importCard || !textArea || !analyzeBtn || !clearBtn || !status) return;
+
+  function setStatus(html, kind) {
+    status.className = 'small mt-3 ' + (kind || 'text-muted');
+    status.innerHTML = html;
+  }
+
+  function getCsrfToken() {
+    var token = document.querySelector('[name=csrfmiddlewaretoken]');
+    return token ? token.value : '';
+  }
+
+  function analyzeImport() {
+    var text = textArea.value.trim();
+    if (!text) {
+      setStatus('Pega una conversación para analizarla.', 'text-warning');
+      return;
+    }
+    analyzeBtn.disabled = true;
+    setStatus('<span class="spinner-border spinner-border-sm me-1"></span>Analizando conversación...', 'text-muted');
+
+    fetch(textArea.dataset.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'X-CSRFToken': getCsrfToken()
+      },
+      body: new URLSearchParams({ text: text })
+    })
+      .then(function (response) {
+        if (!response.ok) throw new Error('No se pudo analizar la conversación.');
+        return response.json();
+      })
+      .then(applyImportResult)
+      .catch(function (error) {
+        setStatus(error.message, 'text-danger');
+      })
+      .finally(function () {
+        analyzeBtn.disabled = false;
+      });
+  }
+
+  function applyImportResult(result) {
+    if (!result.ok) {
+      setStatus(result.error || 'No se pudo analizar la conversación.', 'text-danger');
+      return;
+    }
+
+    if (draftHasValues() && !window.confirm('Esto reemplazará cartas, moneda, notas e instrucciones del borrador actual. ¿Continuar?')) {
+      setStatus('Importación cancelada. El borrador no fue modificado.', 'text-warning');
+      return;
+    }
+
+    applyContact(result.contact, result.contact_suggestion);
+    applyCurrency(result.currency);
+    applyShipping(result.is_shipping);
+    applyNotes(result.notes);
+    applyInstructions(result.instructions);
+    applyItems(result.items || []);
+    renderImportSummary(result);
+  }
+
+  function draftHasValues() {
+    var notes = document.getElementById('id_notes');
+    var instructions = document.getElementById('id_instructions');
+    if ((notes && notes.value.trim()) || (instructions && instructions.value.trim())) return true;
+    return Array.from(document.querySelectorAll('#formset-container .item-row')).some(function (row) {
+      if (row.style.display === 'none') return false;
+      var card = row.querySelector('select[name$="-card"]');
+      var price = row.querySelector('[name$="-unit_price"]');
+      var qty = row.querySelector('[name$="-quantity"]');
+      return Boolean(card && card.value) || Boolean(price && price.value && price.value !== '0') || Boolean(qty && qty.value && qty.value !== '1');
+    });
+  }
+
+  function applyContact(contact, suggestion) {
+    var select = document.getElementById(importCard.dataset.contactField);
+    if (!select) return;
+    if (contact && contact.id) {
+      if (select.tomselect) select.tomselect.setValue(contact.id);
+      else select.value = contact.id;
+      return;
+    }
+    if (suggestion) select.dataset.whatsappSuggestion = suggestion;
+  }
+
+  function applyCurrency(currency) {
+    if (!currency) return;
+    var select = document.getElementById('id_currency');
+    if (!select) return;
+    select.value = currency;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function applyShipping(isShipping) {
+    if (isShipping === null || typeof isShipping === 'undefined') return;
+    var checkbox = document.getElementById('id_is_shipping');
+    if (!checkbox) return;
+    checkbox.checked = Boolean(isShipping);
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function applyNotes(notes) {
+    var field = document.getElementById('id_notes');
+    if (field && notes) field.value = notes;
+  }
+
+  function applyInstructions(instructions) {
+    var field = document.getElementById('id_instructions');
+    if (field && instructions) field.value = instructions;
+  }
+
+  function applyItems(items) {
+    if (!items.length) return;
+    while (document.querySelectorAll('#formset-container .item-row').length < items.length) {
+      document.getElementById('add-item').click();
+    }
+    document.querySelectorAll('#formset-container .item-row').forEach(function (row, index) {
+      var item = items[index];
+      if (!item) {
+        setRowValues(row, '', '1', '0');
+        return;
+      }
+      setRowValues(row, item.card_id || '', item.quantity || '1', item.unit_price || '0');
+      row.dataset.whatsappCode = item.code || '';
+      row.dataset.whatsappMatched = item.matched ? '1' : '0';
+    });
+  }
+
+  function renderImportSummary(result) {
+    var items = result.items || [];
+    var unmatchedItems = items.filter(function (item) { return !item.matched; });
+    var confidence = unmatchedItems.length || (!result.contact && result.contact_suggestion) ? 'text-warning' : 'text-success';
+    var html = '<div class="alert ' + (confidence === 'text-warning' ? 'alert-info border-warning' : 'alert-success') + ' mb-2 py-2">';
+    html += '<div class="fw-semibold mb-1">' + (confidence === 'text-warning' ? 'Revisa antes de guardar' : 'Importación lista para revisar') + '</div>';
+    html += '<div>';
+    if (result.contact) {
+      html += 'Contacto seleccionado: <strong>' + escapeHtml(result.contact.name) + '</strong>. ';
+    } else if (result.contact_suggestion) {
+      html += 'Posible contacto: <strong>' + escapeHtml(result.contact_suggestion) + '</strong> ' + contactCreateButton(result.contact_suggestion) + ' ';
+    }
+    if (result.currency) html += 'Moneda: <strong>' + escapeHtml(result.currency) + '</strong>. ';
+    if (result.is_shipping === true) html += 'Marcado como envío. ';
+    if (result.is_shipping === false) html += 'Marcado como retiro/entrega presencial. ';
+    if (!result.looks_like_chat) html += 'El texto no parece exportación de WhatsApp, pero se analizaron códigos y precios. ';
+    html += '</div></div>';
+
+    if (items.length) {
+      html += '<div class="row row-cols-1 row-cols-sm-2 g-2">';
+      items.forEach(function (item, index) {
+        html += '<div class="col"><div class="border rounded p-2 h-100" style="border-color:var(--eva-border)!important;background:rgba(255,255,255,0.03);">';
+        html += '<div class="d-flex gap-2 align-items-center">';
+        if (item.card_image_url) {
+          html += '<img src="' + escapeHtml(item.card_image_url) + '" referrerpolicy="no-referrer" alt="' + escapeHtml(item.code) + '" style="width:36px;height:50px;object-fit:contain;background:#090314;border-radius:3px;">';
+        } else {
+          html += '<div class="d-flex align-items-center justify-content-center rounded text-muted" style="width:36px;height:50px;background:#090314;border:1px solid var(--eva-border);"><i class="bi bi-card-image"></i></div>';
+        }
+        html += '<div class="flex-grow-1"><div class="fw-semibold">' + escapeHtml(item.code) + '</div>';
+        html += '<div class="text-muted">' + escapeHtml(item.matched ? item.card_name : 'No está en catálogo') + '</div>';
+        html += '<div>' + escapeHtml(String(item.quantity || 1)) + '× ' + escapeHtml(String(item.unit_price || 0)) + '</div></div>';
+        if (!item.matched) html += cardCreateButton(item.code, index);
+        html += '</div></div></div>';
+      });
+      html += '</div>';
+    }
+    setStatus(html, confidence);
+    if (window.htmx) htmx.process(status);
+  }
+
+  function contactCreateButton(name) {
+    var url = importCard.dataset.contactNewUrl + '?select=' + encodeURIComponent(importCard.dataset.contactField) + '&name=' + encodeURIComponent(name);
+    return '<button type="button" class="btn btn-sm btn-outline-success ms-1" hx-get="' + escapeHtml(url) + '" hx-target="#dynamicModalBody" data-bs-toggle="modal" data-bs-target="#dynamicModal">Crear contacto</button>';
+  }
+
+  function cardCreateButton(code, index) {
+    var row = document.querySelectorAll('#formset-container .item-row')[index];
+    var select = row ? row.querySelector('select[name$="-card"]') : null;
+    var selectId = select ? select.id : '';
+    var url = importCard.dataset.cardNewUrl + '?select=' + encodeURIComponent(selectId) + '&code=' + encodeURIComponent(code);
+    return '<button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" hx-get="' + escapeHtml(url) + '" hx-target="#dynamicModalBody" data-bs-toggle="modal" data-bs-target="#dynamicModal">Crear</button>';
+  }
+
+  function setRowValues(row, cardId, quantity, unitPrice) {
+    var cardSelect = row.querySelector('select[name$="-card"]');
+    var quantityInput = row.querySelector('[name$="-quantity"]');
+    var priceInput = row.querySelector('[name$="-unit_price"]');
+    if (cardSelect) {
+      if (cardSelect.tomselect) cardSelect.tomselect.setValue(cardId);
+      else cardSelect.value = cardId;
+    }
+    if (quantityInput) quantityInput.value = quantity;
+    if (priceInput) priceInput.value = unitPrice;
+    if (priceInput) priceInput.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function escapeHtml(value) {
+    var div = document.createElement('div');
+    div.textContent = value || '';
+    return div.innerHTML;
+  }
+
+  textArea.addEventListener('paste', function () {
+    setTimeout(analyzeImport, 0);
+  });
+  analyzeBtn.addEventListener('click', analyzeImport);
+  clearBtn.addEventListener('click', function () {
+    textArea.value = '';
+    setStatus('', 'text-muted');
+  });
+});
+</script>

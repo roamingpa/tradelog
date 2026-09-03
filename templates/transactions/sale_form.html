@@ -34,6 +34,10 @@
     </div>
   {% endif %}
 
+  {% if not editing %}
+    {% include "transactions/_whatsapp_import.html" with import_kind="sale" contact_field_id="id_buyer" %}
+  {% endif %}
+
   <div class="card mb-3">
     <div class="card-header fw-semibold">Información general</div>
     <div class="card-body">
@@ -47,6 +51,13 @@
           <label class="form-label">Moneda</label>
           {{ form.currency }}
         </div>
+        <div class="col-12">
+          <button class="btn btn-sm btn-outline-secondary w-100 text-start" type="button" data-bs-toggle="collapse" data-bs-target="#delivery-section">
+            <i class="bi bi-truck me-1"></i>Entrega, lugar e instrucciones
+          </button>
+        </div>
+        <div class="col-12 collapse show" id="delivery-section">
+          <div class="row g-3">
         <div class="col-12">
           <div class="form-check form-switch">
             {{ form.is_shipping }}
@@ -93,6 +104,8 @@
         <div class="col-12">
           <label class="form-label" id="instructions-label">Instrucciones de entrega</label>
           {{ form.instructions }}
+        </div>
+          </div>
         </div>
         <div class="col-12">
           <label class="form-label">Notas</label>
@@ -408,6 +421,16 @@ document.addEventListener('DOMContentLoaded', function () {
     syncCurrency();
   });
 
+  document.getElementById('formset-container').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || !e.target.matches('[name$="-unit_price"]')) return;
+    e.preventDefault();
+    document.getElementById('add-item').click();
+    var rows = document.querySelectorAll('#formset-container .item-row');
+    var nextSelect = rows[rows.length - 1].querySelector('select[name$="-card"]');
+    if (nextSelect && nextSelect.tomselect) nextSelect.tomselect.focus();
+    else if (nextSelect) nextSelect.focus();
+  });
+
   document.getElementById('formset-container').addEventListener('input', updateTotal);
 
   function updateTotal() {
@@ -489,6 +512,53 @@ document.addEventListener('DOMContentLoaded', function () {
       if (row) updateCardPreview(row);
     }
   });
+
+  var draftForm = document.querySelector('form[method="post"]');
+  var draftKey = document.getElementById('whatsapp-import-card') ? 'tradelog:draft:' + window.location.pathname : null;
+  var draftTimer = null;
+
+  function setFieldValue(field, value) {
+    if (field.type === 'checkbox') field.checked = value === 'on';
+    else field.value = value;
+    if (field.tomselect) field.tomselect.setValue(value, true);
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function restoreDraft() {
+    if (!draftKey || !draftForm) return;
+    var raw = localStorage.getItem(draftKey);
+    if (!raw) return;
+    var data = JSON.parse(raw);
+    var totalForms = parseInt(data['items-TOTAL_FORMS'] || '1', 10);
+    while (parseInt(totalInput.value, 10) < totalForms) document.getElementById('add-item').click();
+    Object.keys(data).forEach(function (name) {
+      if (name === 'csrfmiddlewaretoken') return;
+      var fields = draftForm.querySelectorAll('[name="' + CSS.escape(name) + '"]');
+      fields.forEach(function (field) { setFieldValue(field, data[name]); });
+    });
+    syncShipping();
+    syncCurrency();
+    updateTotal();
+  }
+
+  function saveDraft() {
+    if (!draftKey || !draftForm) return;
+    var data = {};
+    new FormData(draftForm).forEach(function (value, key) {
+      if (key !== 'csrfmiddlewaretoken') data[key] = value;
+    });
+    localStorage.setItem(draftKey, JSON.stringify(data));
+  }
+
+  if (draftKey && draftForm) {
+    try { restoreDraft(); } catch (error) { localStorage.removeItem(draftKey); }
+    draftForm.addEventListener('input', function () {
+      clearTimeout(draftTimer);
+      draftTimer = setTimeout(saveDraft, 250);
+    });
+    draftForm.addEventListener('change', saveDraft);
+    draftForm.addEventListener('submit', function () { localStorage.removeItem(draftKey); });
+  }
 });
 </script>
 {% endblock %}
